@@ -127,13 +127,6 @@
             font-size: 14px;
         }
         
-        .comment-item .title {
-            font-weight: 600;
-            color: #667eea;
-            margin-bottom: 8px;
-            font-size: 14px;
-        }
-        
         .comment-item .content {
             margin-bottom: 12px;
             line-height: 1.5;
@@ -184,7 +177,6 @@
         
         <div class="result-info">
             <p><strong>帖子URL：</strong><span class="url">{{ url }}</span></p>
-            <p><strong>帖子标题：</strong>{{ title }}</p>
             <p><strong>爬取评论数量：</strong>{{ comment_count }} 条</p>
             <a href="/download/{{ excel_filename }}" class="download-btn">下载Excel文件</a>
         </div>
@@ -194,7 +186,6 @@
             {% for comment in preview_comments %}
             <div class="comment-item">
                 <div class="id">ID: {{ comment.id }}</div>
-                <div class="title">标题: {{ comment.title }}</div>
                 <div class="content">{{ comment.content }}</div>
                 <div class="meta">
                     <span>点赞: {{ comment.likes }}</span>

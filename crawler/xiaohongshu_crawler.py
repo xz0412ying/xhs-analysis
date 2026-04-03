@@ -193,12 +193,11 @@ def crawl_xiaohongshu_comments(url, progress_callback=None):
         print(f"爬取失败: {str(e)}")
         return []
 
-def save_comments_to_excel(comments, filename, title):
+def save_comments_to_excel(comments, filename):
     """
     保存评论到Excel文件
     :param comments: 评论列表
     :param filename: 文件名
-    :param title: 帖子标题
     :return: Excel文件路径
     """
     try:
@@ -206,17 +205,13 @@ def save_comments_to_excel(comments, filename, title):
         print(f"评论数量: {len(comments)}")
         
         if comments:
-            # 为每个评论添加标题
-            for comment in comments:
-                comment['title'] = title
-            
             # 转换为DataFrame
             df = pd.DataFrame(comments)
             print(f"DataFrame形状: {df.shape}")
             print(f"DataFrame列: {list(df.columns)}")
             
             # 确保列顺序
-            expected_columns = ['id', 'title', 'content', 'likes']
+            expected_columns = ['id', 'content', 'likes']
             for col in expected_columns:
                 if col not in df.columns:
                     df[col] = ""
@@ -251,13 +246,9 @@ def save_comments_to_excel(comments, filename, title):
         # 尝试使用当前目录保存
         try:
             if comments:
-                # 为每个评论添加标题
-                for comment in comments:
-                    comment['title'] = title
-                
                 df = pd.DataFrame(comments)
                 # 确保列顺序
-                expected_columns = ['id', 'title', 'content', 'likes']
+                expected_columns = ['id', 'content', 'likes']
                 for col in expected_columns:
                     if col not in df.columns:
                         df[col] = ""

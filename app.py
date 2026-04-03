@@ -4,7 +4,6 @@ import os
 import threading
 import pandas as pd
 from crawler.xiaohongshu_crawler import crawl_xiaohongshu_comments, save_comments_to_excel
-from db import Database
 
 app = Flask(__name__)
 app.config['TEMPLATES_AUTO_RELOAD'] = True
@@ -29,17 +28,13 @@ def home():
 @app.route('/crawl', methods=['GET', 'POST'])
 def crawl():
     if request.method == 'POST':
-        # 获取用户输入的URL、标题、时间标记和文件名
+        # 获取用户输入的URL、时间标记和文件名
         url = request.form.get('url')
-        title = request.form.get('title')
         time_mark = request.form.get('time_mark')
         filename = request.form.get('filename')
         
         if not url:
             return render_template('index.html', error='请输入帖子URL', excel_files=get_excel_files())
-        
-        if not title:
-            return render_template('index.html', error='请输入帖子标题', excel_files=get_excel_files())
         
         if not time_mark:
             return render_template('index.html', error='请输入时间标记', excel_files=get_excel_files())
@@ -59,26 +54,13 @@ def crawl():
             'comments': None,
             'excel_filename': None,
             'url': url,
-            'title': title,
             'time_mark': time_mark,
             'filename': filename
         }
         
         # 启动爬取线程
         def crawl_task():
-            db = None
             try:
-                # 连接数据库
-                db = Database()
-                db.connect()
-                
-                # 插入帖子数据
-                post_id = db.insert_post(url, title, time_mark)
-                if not post_id:
-                    crawl_progress[task_id]['status'] = 'error'
-                    crawl_progress[task_id]['error'] = '插入帖子数据失败'
-                    return
-                
                 # 定义进度回调函数
                 def progress_callback(progress, max_scrolls):
                     crawl_progress[task_id]['progress'] = progress
@@ -92,11 +74,7 @@ def crawl():
                 # 在文件名前面添加时间标记
                 filename_with_ext = f"{time_mark}_{cleaned_filename}.xlsx"
                 # 保存为Excel文件
-                excel_path = save_comments_to_excel(comments, filename_with_ext, title)
-                
-                # 插入评论数据
-                for comment in comments:
-                    db.insert_comment(post_id, comment['content'], comment['likes'])
+                excel_path = save_comments_to_excel(comments, filename_with_ext)
                 
                 if not comments:
                     crawl_progress[task_id]['status'] = 'error'
@@ -116,9 +94,6 @@ def crawl():
             except Exception as e:
                 crawl_progress[task_id]['status'] = 'error'
                 crawl_progress[task_id]['error'] = str(e)
-            finally:
-                if db:
-                    db.close()
         
         threading.Thread(target=crawl_task).start()
         
@@ -140,7 +115,6 @@ def result(task_id):
         data = crawl_progress[task_id]
         return render_template('result.html', 
                            url=data['url'], 
-                           title=data['title'], 
                            comment_count=data['comment_count'], 
                            preview_comments=data['comments'][:10],  # 显示10条评论
                            excel_filename=data['excel_filename'])
