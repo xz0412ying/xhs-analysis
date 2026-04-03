@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>生成式AI伦理风险公众认知分析 - 数据采集</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            padding: 40px;
+            width: 100%;
+            max-width: 600px;
+            animation: fadeIn 0.5s ease-in-out;
+        }
+        
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 30px;
+            font-size: 28px;
+            font-weight: 700;
+        }
+        
+        .status {
+            text-align: center;
+            margin: 25px 0;
+            font-size: 20px;
+            color: #555;
+            font-weight: 600;
+        }
+        
+        .url-info {
+            margin: 20px 0;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 10px;
+            border: 1px solid #e9ecef;
+        }
+        
+        .url-info p {
+            margin: 8px 0;
+            font-size: 14px;
+        }
+        
+        .url-info .url {
+            word-break: break-all;
+            font-family: 'Courier New', Courier, monospace;
+            color: #666;
+            background: #e9ecef;
+            padding: 10px;
+            border-radius: 6px;
+            margin-top: 10px;
+        }
+        
+        .loading-animation {
+            display: flex;
+            justify-content: center;
+            margin: 30px 0;
+        }
+        
+        .loading-dot {
+            width: 12px;
+            height: 12px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 50%;
+            margin: 0 8px;
+            animation: loading 1.5s infinite ease-in-out;
+        }
+        
+        .loading-dot:nth-child(2) {
+            animation-delay: 0.2s;
+        }
+        
+        .loading-dot:nth-child(3) {
+            animation-delay: 0.4s;
+        }
+        
+        @keyframes loading {
+            0%, 100% {
+                transform: scale(0.5);
+                opacity: 0.5;
+            }
+            50% {
+                transform: scale(1);
+                opacity: 1;
+            }
+        }
+        
+        .error {
+            color: #ff4757;
+            text-align: center;
+            margin: 20px 0;
+            background: #ffebee;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid #ff4757;
+        }
+        
+        .back-link {
+            display: inline-block;
+            margin-top: 30px;
+            padding: 12px 24px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            text-decoration: none;
+            border-radius: 8px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .back-link:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+        
+        @media (max-width: 768px) {
+            .container {
+                padding: 30px;
+            }
+            
+            h1 {
+                font-size: 24px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>数据采集 - 进行中</h1>
+        
+        <div class="url-info">
+            <p><strong>帖子URL：</strong></p>
+            <p class="url">{{ url }}</p>
+        </div>
+        
+        <div class="status" id="status">正在爬取评论，请稍候...</div>
+        
+        <div class="loading-animation">
+            <div class="loading-dot"></div>
+            <div class="loading-dot"></div>
+            <div class="loading-dot"></div>
+        </div>
+        
+        <div class="error" id="error"></div>
+        
+        <a href="/" class="back-link">返回首页</a>
+    </div>
+    
+    <script>
+        const taskId = "{{ task_id }}";
+        
+        function updateProgress() {
+            fetch(`/progress/${taskId}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'running') {
+                        // 继续轮询
+                        setTimeout(updateProgress, 1000);
+                    } else if (data.status === 'completed') {
+                        // 跳转到结果页面
+                        window.location.href = `/result/${taskId}`;
+                    } else if (data.status === 'error') {
+                        // 显示错误信息
+                        document.getElementById('status').textContent = '爬取失败';
+                        document.getElementById('error').textContent = data.error || '未知错误';
+                    } else if (data.status === 'not_found') {
+                        // 任务不存在，重定向回首页
+                        window.location.href = '/';
+                    }
+                })
+                .catch(error => {
+                    console.error('获取进度失败:', error);
+                    // 显示网络错误信息
+                    document.getElementById('status').textContent = '网络错误';
+                    document.getElementById('error').textContent = '获取进度失败，请刷新页面重试';
+                });
+        }
+        
+        // 开始轮询
+        updateProgress();
+    </script>
+</body>
+</html>

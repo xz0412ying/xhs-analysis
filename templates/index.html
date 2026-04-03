@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>小红书评论爬虫</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            padding: 40px;
+            width: 100%;
+            max-width: 600px;
+            animation: fadeIn 0.5s ease-in-out;
+        }
+        
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 30px;
+            font-size: 28px;
+            font-weight: 700;
+        }
+        
+        .form-group {
+            margin-bottom: 25px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #555;
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        input[type="text"] {
+            width: 100%;
+            padding: 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: all 0.3s ease;
+            background: #f9f9f9;
+        }
+        
+        input[type="text"]:focus {
+            outline: none;
+            border-color: #667eea;
+            background: white;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+        
+        button {
+            display: block;
+            width: 100%;
+            padding: 16px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 18px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+        
+        button:active {
+            transform: translateY(0);
+        }
+        
+        .error {
+            color: #ff4757;
+            margin-top: 15px;
+            text-align: center;
+            font-size: 14px;
+            background: #ffebee;
+            padding: 10px;
+            border-radius: 6px;
+            border-left: 4px solid #ff4757;
+        }
+        
+        .example {
+            margin-top: 30px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 10px;
+            border: 1px solid #e9ecef;
+        }
+        
+        .example h3 {
+            margin-top: 0;
+            color: #495057;
+            font-size: 16px;
+            margin-bottom: 10px;
+        }
+        
+        .example code {
+            display: block;
+            padding: 15px;
+            background: #e9ecef;
+            border-radius: 6px;
+            font-family: 'Courier New', Courier, monospace;
+            word-break: break-all;
+            font-size: 13px;
+            color: #495057;
+        }
+        
+        @media (max-width: 768px) {
+            .container {
+                padding: 30px;
+            }
+            
+            h1 {
+                font-size: 24px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>小红书评论爬虫</h1>
+        
+        <!-- 爬虫表单 -->
+        <div id="crawl-form">
+            <form method="POST" action="/crawl">
+                <div class="form-group">
+                    <label for="url">小红书帖子URL</label>
+                    <input type="text" id="url" name="url" placeholder="请输入小红书帖子URL，例如：https://www.xiaohongshu.com/explore/698fe871000000000a0287af" required>
+                </div>
+                <div class="form-group">
+                    <label for="time_mark">时间标记</label>
+                    <input type="text" id="time_mark" name="time_mark" placeholder="请输入时间标记，例如：20240101" required>
+                </div>
+                <div class="form-group">
+                    <label for="filename">Excel文件名</label>
+                    <input type="text" id="filename" name="filename" placeholder="请输入Excel文件名（无需后缀）" required>
+                </div>
+                <button type="submit">开始爬取</button>
+                {% if error %}
+                <div class="error">{{ error }}</div>
+                {% endif %}
+            </form>
+            
+            <div class="example">
+                <h3>示例URL</h3>
+                <code>https://www.xiaohongshu.com/explore/698fe871000000000a0287af?xsec_token=ABpUR4WvhkIF2zAU2xPPycJNDFQ3RGKa1JRjOne4IBtlo=&xsec_source=pc_search&source=web_explore_feed</code>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
