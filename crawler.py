@@ -151,7 +151,7 @@ def crawl_comments_by_url(url, max_scrolls=10):
 
             try:
                 page.scroll.to_bottom()
-                time.sleep(2)
+                time.sleep(5)
                 new_height = page.run_js("return document.body.scrollHeight")
             except Exception:
                 new_height = last_height
@@ -164,7 +164,7 @@ def crawl_comments_by_url(url, max_scrolls=10):
             last_height = new_height
             print(f"已滚动 {i + 1}/{max_scrolls} 次")
 
-            if no_change_count >= 3:
+            if no_change_count >= 5:
                 print("页面没有更多新内容了")
                 break
 
