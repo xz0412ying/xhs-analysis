@@ -450,44 +450,72 @@ def main():
     conn = None
     try:
         conn = get_connection()
-        post = get_post_by_rank(conn, POST_RANK)
-        if not post:
+
+        total_posts = get_post_count(conn)
+        if total_posts == 0:
             print("posts 表没有数据，无法生成主题。")
             return
 
-        comments = get_post_comments(conn, post["post_id"], limit=800)
-        if not comments:
-            print(f"post_id={post['post_id']} 没有评论，无法分析。")
-            return
+        start_rank = START_POST_RANK
+        end_rank = END_POST_RANK if END_POST_RANK is not None else total_posts
 
-        comments_for_llm = select_representative_comments(
-            comments,
-            keep_count=THEME_COMMENT_SAMPLE_SIZE
-        )
+        if start_rank < 1:
+            raise ValueError("START_POST_RANK 必须 >= 1")
+        if end_rank < start_rank:
+            raise ValueError("END_POST_RANK 不能小于 START_POST_RANK")
 
-        print(
-            f"准备分析 post_id={post['post_id']}，"
-            f"原始评论 {len(comments)} 条，送入主题生成模型 {len(comments_for_llm)} 条..."
-        )
+        print(f"准备批量处理帖子：第 {start_rank} 条 到 第 {end_rank} 条，共 {end_rank - start_rank + 1} 条。")
 
-        theme1, theme2, theme3 = call_llm_generate_themes(post, comments_for_llm)
-        update_post_themes(conn, post["post_id"], theme1, theme2, theme3)
+        for rank in range(start_rank, end_rank + 1):
+            print("\n" + "=" * 70)
+            print(f"开始处理第 {rank}/{total_posts} 条帖子...")
 
-        print("主题写回成功：")
-        print("theme1:", theme1)
-        print("theme2:", theme2)
-        print("theme3:", theme3)
+            try:
+                post = get_post_by_rank(conn, rank)
+                if not post:
+                    print(f"第 {rank} 条帖子不存在，跳过。")
+                    continue
 
-        print("开始为评论分配主题...")
-        updates, theme_count, expressive_count, normal_count = assign_comment_themes_with_llm(
-            post, comments, theme1, theme2, theme3
-        )
-        update_comment_assigned_theme(conn, updates)
+                comments = get_post_comments(conn, post["post_id"], limit=800)
+                if not comments:
+                    print(f"post_id={post['post_id']} 没有评论，跳过。")
+                    continue
 
-        print("评论主题写回成功：")
-        print("纯表态评论数：", expressive_count)
-        print("需模型分类评论数：", normal_count)
-        print("各主题评论量：", dict(theme_count))
+                comments_for_llm = select_representative_comments(
+                    comments,
+                    keep_count=THEME_COMMENT_SAMPLE_SIZE
+                )
+
+                print(
+                    f"准备分析 post_id={post['post_id']}，"
+                    f"原始评论 {len(comments)} 条，送入主题生成模型 {len(comments_for_llm)} 条..."
+                )
+
+                theme1, theme2, theme3 = call_llm_generate_themes(post, comments_for_llm)
+                update_post_themes(conn, post["post_id"], theme1, theme2, theme3)
+
+                print("主题写回成功：")
+                print("theme1:", theme1)
+                print("theme2:", theme2)
+                print("theme3:", theme3)
+
+                print("开始为评论分配主题...")
+                updates, theme_count, expressive_count, normal_count = assign_comment_themes_with_llm(
+                    post, comments, theme1, theme2, theme3
+                )
+                update_comment_assigned_theme(conn, updates)
+
+                print("评论主题写回成功：")
+                print("纯表态评论数：", expressive_count)
+                print("需模型分类评论数：", normal_count)
+                print("各主题评论量：", dict(theme_count))
+
+            except Exception as e:
+                print(f"第 {rank} 条帖子处理失败：{str(e)}")
+                # 继续处理下一条，不中断整个批量流程
+                continue
+
+        print("\n批量处理完成。")
 
     except Exception as e:
         print("执行失败：", str(e))
