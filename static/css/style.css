@@ -269,3 +269,7 @@ body {
 .chart.large {
     height: 600px;
 }
+
+.chart.xlarge {
+    height: 620px;
+}
