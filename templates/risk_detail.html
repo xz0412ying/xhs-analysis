@@ -30,10 +30,12 @@
 <div class="card-grid two">
     <div class="card">
         <div class="card-title">情感分布</div>
+        <div class="chart-note">用于反映公众对该风险的整体情绪倾向。</div>
         <div id="riskSentimentPie" class="chart"></div>
     </div>
     <div class="card">
         <div class="card-title">态度类型分布</div>
+        <div class="chart-note">用于识别公众在该风险议题上的主要立场表达。</div>
         <div id="riskAttitudeBar" class="chart"></div>
     </div>
 </div>
@@ -41,27 +43,38 @@
 <div class="card-grid two">
     <div class="card">
         <div class="card-title">评论主题 Top10</div>
+        <div class="chart-note">用于揭示该风险下公众讨论最集中的具体子议题。</div>
         <div id="riskThemeBar" class="chart"></div>
     </div>
     <div class="card">
-        <div class="card-title">不同态度的平均点赞数</div>
-        <div id="riskAttitudeLikeBar" class="chart"></div>
+        <div class="card-title">主题 × 情感分布</div>
+        <div class="chart-note">用于比较不同子议题下的情感差异，识别更易引发消极情绪的主题。</div>
+        <div id="themeSentimentChart" class="chart"></div>
     </div>
+</div>
+
+<div class="card">
+    <div class="card-title">主题 × 态度热力图</div>
+    <div class="chart-note">用于分析不同子议题对应的公众态度差异，识别态度分化最明显的讨论主题。</div>
+    <div id="themeAttitudeHeatmap" class="chart large"></div>
 </div>
 
 <div class="card-grid two">
     <div class="card">
         <div class="card-title">帖子数量时间趋势（按月）</div>
+        <div class="chart-note">用于分析该风险在时间维度上的热度演化。</div>
         <div id="riskTrendLine" class="chart"></div>
     </div>
     <div class="card">
         <div class="card-title">消极情感时间趋势（按月）</div>
+        <div class="chart-note">用于观察该风险负面认知在时间维度上的变化。</div>
         <div id="riskNegativeTrendLine" class="chart"></div>
     </div>
 </div>
 
 <div class="card">
     <div class="card-title">代表性帖子</div>
+    <div class="chart-note">用于连接抽象风险类别与具体讨论内容，定位构成该风险认知的典型文本样本。</div>
     <table class="data-table">
         <thead>
             <tr>
@@ -114,9 +127,7 @@ async function loadRiskSentiment() {
                 value: d.cnt,
                 itemStyle: { color: sentimentColor(d.sentiment_label) }
             })),
-            label: {
-                formatter: "{b}\n{d}%"
-            }
+            label: { formatter: "{b}\n{d}%" }
         }]
     });
 }
@@ -133,18 +144,12 @@ async function loadRiskAttitude() {
         yAxis: {
             type: "category",
             data: data.map(d => d.attitude_type),
-            axisLabel: {
-                width: 100,
-                overflow: "truncate"
-            }
+            axisLabel: { width: 100, overflow: "truncate" }
         },
         series: [{
             type: "bar",
             data: data.map(d => d.cnt),
-            label: {
-                show: true,
-                position: "right"
-            }
+            label: { show: true, position: "right" }
         }]
     });
 }
@@ -161,51 +166,110 @@ async function loadRiskThemes() {
         yAxis: {
             type: "category",
             data: data.map(d => d.assigned_theme),
-            axisLabel: {
-                width: 120,
-                overflow: "truncate"
-            }
+            axisLabel: { width: 120, overflow: "truncate" }
         },
         series: [{
             type: "bar",
             data: data.map(d => d.cnt),
-            label: {
-                show: true,
-                position: "right"
-            },
-            itemStyle: {
-                color: "#5B8FF9"
-            }
+            label: { show: true, position: "right" },
+            itemStyle: { color: "#5B8FF9" }
         }]
     });
 }
 
-async function loadRiskAttitudeLikes() {
-    const res = await fetch("/api/risk/{{ current_risk_id }}/attitude_likes");
+async function loadThemeSentimentDistribution() {
+    const res = await fetch("/api/risk/{{ current_risk_id }}/theme_sentiment_distribution");
     const data = await res.json();
 
-    const chart = echarts.init(document.getElementById("riskAttitudeLikeBar"));
+    const themes = [...new Set(data.map(d => d.assigned_theme))];
+    const sentiments = ["积极", "中性", "消极"].filter(s =>
+        data.some(d => d.sentiment_label === s)
+    );
+
+    const series = sentiments.map(sentiment => ({
+        name: sentiment,
+        type: "bar",
+        stack: "total",
+        itemStyle: { color: sentimentColor(sentiment) },
+        data: themes.map(theme => {
+            const row = data.find(d => d.assigned_theme === theme && d.sentiment_label === sentiment);
+            return row ? row.cnt : 0;
+        })
+    }));
+
+    const chart = echarts.init(document.getElementById("themeSentimentChart"));
     chart.setOption({
         tooltip: { trigger: "axis", axisPointer: { type: "shadow" } },
-        grid: { left: 120, right: 30, top: 20, bottom: 20 },
-        xAxis: { type: "value" },
-        yAxis: {
+        legend: { top: 0 },
+        grid: { left: 70, right: 20, top: 50, bottom: 70 },
+        xAxis: {
             type: "category",
-            data: data.map(d => d.attitude_type),
+            data: themes,
             axisLabel: {
-                width: 100,
-                overflow: "truncate"
+                rotate: 20,
+                interval: 0
             }
         },
+        yAxis: { type: "value" },
+        series: series
+    });
+}
+
+async function loadThemeAttitudeHeatmap() {
+    const res = await fetch("/api/risk/{{ current_risk_id }}/theme_attitude_matrix");
+    const data = await res.json();
+
+    const themes = data.themes || [];
+    const attitudes = data.attitudes || [];
+    const values = data.values || [];
+
+    const maxValue = values.length ? Math.max(...values.map(v => v[2])) : 0;
+
+    const chart = echarts.init(document.getElementById("themeAttitudeHeatmap"));
+    chart.setOption({
+        tooltip: {
+            position: "top",
+            formatter: function(params) {
+                return `主题：${themes[params.data[0]]}<br>态度：${attitudes[params.data[1]]}<br>数量：${params.data[2]}`;
+            }
+        },
+        grid: {
+            left: 120,
+            right: 30,
+            top: 20,
+            bottom: 80
+        },
+        xAxis: {
+            type: "category",
+            data: themes,
+            splitArea: { show: true },
+            axisLabel: {
+                rotate: 20,
+                interval: 0
+            }
+        },
+        yAxis: {
+            type: "category",
+            data: attitudes,
+            splitArea: { show: true }
+        },
+        visualMap: {
+            min: 0,
+            max: maxValue || 1,
+            calculable: true,
+            orient: "horizontal",
+            left: "center",
+            bottom: 15
+        },
         series: [{
-            type: "bar",
-            data: data.map(d => d.avg_like),
-            label: {
-                show: true,
-                position: "right"
-            },
-            itemStyle: {
-                color: "#36CFC9"
+            type: "heatmap",
+            data: values,
+            label: { show: true },
+            emphasis: {
+                itemStyle: {
+                    shadowBlur: 10,
+                    shadowColor: "rgba(0, 0, 0, 0.5)"
+                }
             }
         }]
     });
@@ -251,12 +315,8 @@ async function loadRiskNegativeTrend() {
             smooth: true,
             symbolSize: 8,
             data: data.map(d => Number(d.cnt) || 0),
-            itemStyle: {
-                color: "#F6BD16"
-            },
-            lineStyle: {
-                color: "#F6BD16"
-            }
+            itemStyle: { color: "#F6BD16" },
+            lineStyle: { color: "#F6BD16" }
         }]
     });
 }
@@ -264,7 +324,8 @@ async function loadRiskNegativeTrend() {
 loadRiskSentiment();
 loadRiskAttitude();
 loadRiskThemes();
-loadRiskAttitudeLikes();
+loadThemeSentimentDistribution();
+loadThemeAttitudeHeatmap();
 loadRiskTrend();
 loadRiskNegativeTrend();
 
@@ -273,7 +334,8 @@ window.addEventListener("resize", function () {
         "riskSentimentPie",
         "riskAttitudeBar",
         "riskThemeBar",
-        "riskAttitudeLikeBar",
+        "themeSentimentChart",
+        "themeAttitudeHeatmap",
         "riskTrendLine",
         "riskNegativeTrendLine"
     ];

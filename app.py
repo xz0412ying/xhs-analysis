@@ -454,6 +454,112 @@ def get_risk_hot_posts(risk_id, limit=10):
         conn.close()
 
 
+def get_risk_theme_attitude_matrix(risk_id, theme_limit=8):
+    conn = get_connection()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute("""
+                SELECT assigned_theme
+                FROM (
+                    SELECT
+                        c.assigned_theme,
+                        COUNT(*) AS cnt
+                    FROM comments c
+                    JOIN post_risk_map m ON c.post_id = m.post_id
+                    WHERE m.risk_id = %s
+                      AND c.assigned_theme IS NOT NULL
+                      AND c.assigned_theme <> ''
+                    GROUP BY c.assigned_theme
+                    ORDER BY cnt DESC
+                    LIMIT %s
+                ) t
+            """, (risk_id, theme_limit))
+            top_theme_rows = cursor.fetchall()
+            top_themes = [row["assigned_theme"] for row in top_theme_rows]
+
+            if not top_themes:
+                return {"themes": [], "attitudes": [], "values": []}
+
+            placeholders = ",".join(["%s"] * len(top_themes))
+            sql = f"""
+                SELECT
+                    c.assigned_theme,
+                    c.attitude_type,
+                    COUNT(*) AS cnt
+                FROM comments c
+                JOIN post_risk_map m ON c.post_id = m.post_id
+                WHERE m.risk_id = %s
+                  AND c.assigned_theme IN ({placeholders})
+                  AND c.attitude_type IS NOT NULL
+                GROUP BY c.assigned_theme, c.attitude_type
+                ORDER BY c.assigned_theme, c.attitude_type
+            """
+            cursor.execute(sql, [risk_id] + top_themes)
+            rows = cursor.fetchall()
+
+            attitudes = sorted(list({row["attitude_type"] for row in rows if row["attitude_type"]}))
+            values = []
+            for row in rows:
+                if row["assigned_theme"] in top_themes and row["attitude_type"] in attitudes:
+                    x = top_themes.index(row["assigned_theme"])
+                    y = attitudes.index(row["attitude_type"])
+                    values.append([x, y, row["cnt"]])
+
+            return {
+                "themes": top_themes,
+                "attitudes": attitudes,
+                "values": values
+            }
+    finally:
+        conn.close()
+
+
+def get_risk_theme_sentiment_distribution(risk_id, theme_limit=8):
+    conn = get_connection()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute("""
+                SELECT assigned_theme
+                FROM (
+                    SELECT
+                        c.assigned_theme,
+                        COUNT(*) AS cnt
+                    FROM comments c
+                    JOIN post_risk_map m ON c.post_id = m.post_id
+                    WHERE m.risk_id = %s
+                      AND c.assigned_theme IS NOT NULL
+                      AND c.assigned_theme <> ''
+                    GROUP BY c.assigned_theme
+                    ORDER BY cnt DESC
+                    LIMIT %s
+                ) t
+            """, (risk_id, theme_limit))
+            top_theme_rows = cursor.fetchall()
+            top_themes = [row["assigned_theme"] for row in top_theme_rows]
+
+            if not top_themes:
+                return []
+
+            placeholders = ",".join(["%s"] * len(top_themes))
+            sql = f"""
+                SELECT
+                    c.assigned_theme,
+                    c.sentiment_label,
+                    COUNT(*) AS cnt
+                FROM comments c
+                JOIN post_risk_map m ON c.post_id = m.post_id
+                WHERE m.risk_id = %s
+                  AND c.assigned_theme IN ({placeholders})
+                  AND c.sentiment_label IS NOT NULL
+                GROUP BY c.assigned_theme, c.sentiment_label
+                ORDER BY c.assigned_theme, c.sentiment_label
+            """
+            cursor.execute(sql, [risk_id] + top_themes)
+            return cursor.fetchall()
+    finally:
+        conn.close()
+
+
 # =========================
 # Post Detail
 # =========================
@@ -646,6 +752,16 @@ def api_risk_trend_detail(risk_id):
 @app.route("/api/risk/<int:risk_id>/negative_trend")
 def api_risk_negative_trend(risk_id):
     return jsonify(get_risk_negative_trend_detail(risk_id))
+
+
+@app.route("/api/risk/<int:risk_id>/theme_attitude_matrix")
+def api_risk_theme_attitude_matrix(risk_id):
+    return jsonify(get_risk_theme_attitude_matrix(risk_id, 8))
+
+
+@app.route("/api/risk/<int:risk_id>/theme_sentiment_distribution")
+def api_risk_theme_sentiment_distribution(risk_id):
+    return jsonify(get_risk_theme_sentiment_distribution(risk_id, 8))
 
 
 @app.route("/api/post/<int:post_id>/sentiment")

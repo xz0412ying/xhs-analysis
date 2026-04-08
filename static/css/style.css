@@ -258,3 +258,14 @@ body {
         width: 220px;
     }
 }
+
+.chart-note {
+    font-size: 13px;
+    color: #7a869a;
+    line-height: 1.7;
+    margin-bottom: 12px;
+}
+
+.chart.large {
+    height: 460px;
+}
