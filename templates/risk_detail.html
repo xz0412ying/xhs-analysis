@@ -1,0 +1,288 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-title">单风险分析</div>
+
+<div class="card">
+    <div class="card-title">{{ risk_detail.risk.risk_name }}</div>
+    <div class="desc-text">{{ risk_detail.risk.risk_desc or "暂无风险说明" }}</div>
+</div>
+
+<div class="card-grid four">
+    <div class="card stat-card">
+        <div class="stat-label">涉及帖子数</div>
+        <div class="stat-value">{{ risk_detail.post_count }}</div>
+    </div>
+    <div class="card stat-card">
+        <div class="stat-label">涉及评论数</div>
+        <div class="stat-value">{{ risk_detail.comment_count }}</div>
+    </div>
+    <div class="card stat-card">
+        <div class="stat-label">消极情感占比</div>
+        <div class="stat-value">{{ risk_detail.negative_ratio }}%</div>
+    </div>
+    <div class="card stat-card">
+        <div class="stat-label">已标注态度评论数</div>
+        <div class="stat-value">{{ risk_detail.labeled_attitude_count }}</div>
+    </div>
+</div>
+
+<div class="card-grid two">
+    <div class="card">
+        <div class="card-title">情感分布</div>
+        <div id="riskSentimentPie" class="chart"></div>
+    </div>
+    <div class="card">
+        <div class="card-title">态度类型分布</div>
+        <div id="riskAttitudeBar" class="chart"></div>
+    </div>
+</div>
+
+<div class="card-grid two">
+    <div class="card">
+        <div class="card-title">评论主题 Top10</div>
+        <div id="riskThemeBar" class="chart"></div>
+    </div>
+    <div class="card">
+        <div class="card-title">不同态度的平均点赞数</div>
+        <div id="riskAttitudeLikeBar" class="chart"></div>
+    </div>
+</div>
+
+<div class="card-grid two">
+    <div class="card">
+        <div class="card-title">帖子数量时间趋势（按月）</div>
+        <div id="riskTrendLine" class="chart"></div>
+    </div>
+    <div class="card">
+        <div class="card-title">消极情感时间趋势（按月）</div>
+        <div id="riskNegativeTrendLine" class="chart"></div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-title">代表性帖子</div>
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>帖子ID</th>
+                <th>标题</th>
+                <th>发布时间</th>
+                <th>评论数</th>
+                <th>评论总点赞</th>
+                <th>操作</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for post in hot_posts %}
+            <tr>
+                <td>{{ post.post_id }}</td>
+                <td>{{ post.title or ("帖子 " ~ post.post_id) }}</td>
+                <td>{{ post.publish_time or "" }}</td>
+                <td>{{ post.comment_cnt or 0 }}</td>
+                <td>{{ post.total_like or 0 }}</td>
+                <td>
+                    <a class="link-btn" href="{{ url_for('post_detail', post_id=post.post_id) }}">查看详情</a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<script>
+function sentimentColor(name) {
+    if (name === "积极") return "#5B8FF9";
+    if (name === "中性") return "#9CCC65";
+    if (name === "消极") return "#F6BD16";
+    return "#91A3B0";
+}
+
+async function loadRiskSentiment() {
+    const res = await fetch("/api/risk/{{ current_risk_id }}/sentiment");
+    const data = await res.json();
+
+    const chart = echarts.init(document.getElementById("riskSentimentPie"));
+    chart.setOption({
+        tooltip: { trigger: "item" },
+        legend: { bottom: 0 },
+        series: [{
+            type: "pie",
+            radius: ["40%", "70%"],
+            data: data.map(d => ({
+                name: d.sentiment_label,
+                value: d.cnt,
+                itemStyle: { color: sentimentColor(d.sentiment_label) }
+            })),
+            label: {
+                formatter: "{b}\n{d}%"
+            }
+        }]
+    });
+}
+
+async function loadRiskAttitude() {
+    const res = await fetch("/api/risk/{{ current_risk_id }}/attitude");
+    const data = await res.json();
+
+    const chart = echarts.init(document.getElementById("riskAttitudeBar"));
+    chart.setOption({
+        tooltip: { trigger: "axis", axisPointer: { type: "shadow" } },
+        grid: { left: 120, right: 30, top: 20, bottom: 20 },
+        xAxis: { type: "value" },
+        yAxis: {
+            type: "category",
+            data: data.map(d => d.attitude_type),
+            axisLabel: {
+                width: 100,
+                overflow: "truncate"
+            }
+        },
+        series: [{
+            type: "bar",
+            data: data.map(d => d.cnt),
+            label: {
+                show: true,
+                position: "right"
+            }
+        }]
+    });
+}
+
+async function loadRiskThemes() {
+    const res = await fetch("/api/risk/{{ current_risk_id }}/themes");
+    const data = await res.json();
+
+    const chart = echarts.init(document.getElementById("riskThemeBar"));
+    chart.setOption({
+        tooltip: { trigger: "axis", axisPointer: { type: "shadow" } },
+        grid: { left: 140, right: 30, top: 20, bottom: 20 },
+        xAxis: { type: "value" },
+        yAxis: {
+            type: "category",
+            data: data.map(d => d.assigned_theme),
+            axisLabel: {
+                width: 120,
+                overflow: "truncate"
+            }
+        },
+        series: [{
+            type: "bar",
+            data: data.map(d => d.cnt),
+            label: {
+                show: true,
+                position: "right"
+            },
+            itemStyle: {
+                color: "#5B8FF9"
+            }
+        }]
+    });
+}
+
+async function loadRiskAttitudeLikes() {
+    const res = await fetch("/api/risk/{{ current_risk_id }}/attitude_likes");
+    const data = await res.json();
+
+    const chart = echarts.init(document.getElementById("riskAttitudeLikeBar"));
+    chart.setOption({
+        tooltip: { trigger: "axis", axisPointer: { type: "shadow" } },
+        grid: { left: 120, right: 30, top: 20, bottom: 20 },
+        xAxis: { type: "value" },
+        yAxis: {
+            type: "category",
+            data: data.map(d => d.attitude_type),
+            axisLabel: {
+                width: 100,
+                overflow: "truncate"
+            }
+        },
+        series: [{
+            type: "bar",
+            data: data.map(d => d.avg_like),
+            label: {
+                show: true,
+                position: "right"
+            },
+            itemStyle: {
+                color: "#36CFC9"
+            }
+        }]
+    });
+}
+
+async function loadRiskTrend() {
+    const res = await fetch("/api/risk/{{ current_risk_id }}/trend");
+    const data = await res.json();
+
+    const chart = echarts.init(document.getElementById("riskTrendLine"));
+    chart.setOption({
+        tooltip: { trigger: "axis" },
+        grid: { left: 50, right: 20, top: 20, bottom: 40 },
+        xAxis: {
+            type: "category",
+            data: data.map(d => d.dt)
+        },
+        yAxis: { type: "value" },
+        series: [{
+            type: "line",
+            smooth: true,
+            symbolSize: 8,
+            data: data.map(d => d.cnt)
+        }]
+    });
+}
+
+async function loadRiskNegativeTrend() {
+    const res = await fetch("/api/risk/{{ current_risk_id }}/negative_trend");
+    const data = await res.json();
+
+    const chart = echarts.init(document.getElementById("riskNegativeTrendLine"));
+    chart.setOption({
+        tooltip: { trigger: "axis" },
+        grid: { left: 50, right: 20, top: 20, bottom: 40 },
+        xAxis: {
+            type: "category",
+            data: data.map(d => d.dt)
+        },
+        yAxis: { type: "value" },
+        series: [{
+            type: "line",
+            smooth: true,
+            symbolSize: 8,
+            data: data.map(d => Number(d.cnt) || 0),
+            itemStyle: {
+                color: "#F6BD16"
+            },
+            lineStyle: {
+                color: "#F6BD16"
+            }
+        }]
+    });
+}
+
+loadRiskSentiment();
+loadRiskAttitude();
+loadRiskThemes();
+loadRiskAttitudeLikes();
+loadRiskTrend();
+loadRiskNegativeTrend();
+
+window.addEventListener("resize", function () {
+    const ids = [
+        "riskSentimentPie",
+        "riskAttitudeBar",
+        "riskThemeBar",
+        "riskAttitudeLikeBar",
+        "riskTrendLine",
+        "riskNegativeTrendLine"
+    ];
+    ids.forEach(id => {
+        const dom = document.getElementById(id);
+        if (dom) {
+            echarts.getInstanceByDom(dom)?.resize();
+        }
+    });
+});
+</script>
+{% endblock %}

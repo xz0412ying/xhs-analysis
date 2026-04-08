@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-title">单帖子分析</div>
+
+<div class="card">
+    <div class="card-title">{{ post.title or ("帖子 " ~ post.post_id) }}</div>
+    <div class="meta-line">
+        <span>帖子ID：{{ post.post_id }}</span>
+        <span>发布时间：{{ post.publish_time or "暂无" }}</span>
+        <span>平台：小红书</span>
+    </div>
+    <div class="post-content">{{ post.content or "暂无正文内容" }}</div>
+</div>
+
+<div class="card-grid two">
+    <div class="card">
+        <div class="card-title">主题分析</div>
+        <div class="tag-list">
+            <span class="tag">theme1：{{ post.theme1 or "暂无" }}</span>
+            <span class="tag">theme2：{{ post.theme2 or "暂无" }}</span>
+            <span class="tag">theme3：{{ post.theme3 or "暂无" }}</span>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-title">风险归类</div>
+        <div class="tag-list">
+            {% for risk in post_risks %}
+                <a class="tag risk-tag" href="{{ url_for('risk_detail', risk_id=risk.risk_id) }}">
+                    {{ risk.risk_name }}
+                </a>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<div class="card-grid two">
+    <div class="card">
+        <div class="card-title">评论情感分布</div>
+        <div id="postSentimentChart" class="chart"></div>
+    </div>
+    <div class="card">
+        <div class="card-title">分析链路</div>
+        <div class="flow-box">
+            <div class="flow-node">帖子内容</div>
+            <div class="flow-arrow">→</div>
+            <div class="flow-node">主题提炼</div>
+            <div class="flow-arrow">→</div>
+            <div class="flow-node">风险归类</div>
+            <div class="flow-arrow">→</div>
+            <div class="flow-node">评论态度</div>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-title">代表性评论</div>
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>评论ID</th>
+                <th>评论内容</th>
+                <th>评论主题</th>
+                <th>情感态度</th>
+                <th>点赞数</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for c in comments %}
+            <tr>
+                <td>{{ c.comment_id }}</td>
+                <td>{{ c.comment_content }}</td>
+                <td>{{ c.assigned_theme or "" }}</td>
+                <td>{{ c.attitude_type or "" }}</td>
+                <td>{{ c.like_count or 0 }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<script>
+async function loadPostSentiment() {
+    const res = await fetch("/api/post/{{ post.post_id }}/sentiment");
+    const data = await res.json();
+
+    const chart = echarts.init(document.getElementById("postSentimentChart"));
+    chart.setOption({
+        tooltip: { trigger: 'item' },
+        legend: { bottom: 0 },
+        series: [{
+            type: 'pie',
+            radius: ['40%', '70%'],
+            data: data.map(d => ({ name: d.attitude_type, value: d.cnt }))
+        }]
+    });
+}
+
+loadPostSentiment();
+</script>
+{% endblock %}

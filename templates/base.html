@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>{{ page_title or "生成式AI伦理风险分析系统" }}</title>
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="header">
+        <div class="header-title">生成式AI伦理风险公众认知分析系统</div>
+    </div>
+
+    <div class="layout">
+        <aside class="sidebar">
+            <div class="nav-group">
+                <div class="nav-group-title">总览</div>
+                <a href="{{ url_for('dashboard') }}"
+                   class="nav-item {% if current_page == 'dashboard' %}active{% endif %}">
+                    总风险页
+                </a>
+            </div>
+
+            <div class="nav-group">
+                <div class="nav-group-title">风险列表</div>
+                {% for risk in risks %}
+                    <a href="{{ url_for('risk_detail', risk_id=risk.risk_id) }}"
+                       class="nav-item {% if current_risk_id == risk.risk_id and current_page in ['risk', 'post'] %}active{% endif %}">
+                        {{ risk.risk_name }}
+                    </a>
+                {% endfor %}
+            </div>
+
+            {% if posts_for_sidebar %}
+            <div class="nav-group">
+                <div class="nav-group-title">相关帖子</div>
+                {% for post in posts_for_sidebar %}
+                    <a href="{{ url_for('post_detail', post_id=post.post_id) }}"
+                       class="sub-nav-item {% if current_post_id == post.post_id %}active{% endif %}">
+                        {{ post.title if post.title else ('帖子 ' ~ post.post_id) }}
+                    </a>
+                {% endfor %}
+            </div>
+            {% endif %}
+        </aside>
+
+        <main class="content">
+            {% block content %}{% endblock %}
+        </main>
+    </div>
+</body>
+</html>
