@@ -249,6 +249,76 @@ def get_hot_posts(limit=10):
         conn.close()
 
 
+def get_risk_cooccurrence_matrix():
+    conn = get_connection()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute("""
+                SELECT risk_id, risk_name
+                FROM risk_issues
+                ORDER BY risk_id ASC
+            """)
+            risks = cursor.fetchall()
+
+            if not risks:
+                return {"risks": [], "values": []}
+
+            risk_ids = [r["risk_id"] for r in risks]
+            risk_names = [r["risk_name"] for r in risks]
+
+            cursor.execute("""
+                SELECT
+                    a.risk_id AS risk_a,
+                    b.risk_id AS risk_b,
+                    COUNT(*) AS cnt
+                FROM post_risk_map a
+                JOIN post_risk_map b
+                  ON a.post_id = b.post_id
+                GROUP BY a.risk_id, b.risk_id
+            """)
+            rows = cursor.fetchall()
+
+            values = []
+            for row in rows:
+                if row["risk_a"] in risk_ids and row["risk_b"] in risk_ids:
+                    x = risk_ids.index(row["risk_a"])
+                    y = risk_ids.index(row["risk_b"])
+                    values.append([x, y, row["cnt"]])
+
+            return {
+                "risks": risk_names,
+                "values": values
+            }
+    finally:
+        conn.close()
+
+
+def get_risk_heat_scatter():
+    conn = get_connection()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute("""
+                SELECT
+                    r.risk_name,
+                    COUNT(*) AS total_cnt,
+                    SUM(CASE WHEN c.sentiment_label = '消极' THEN 1 ELSE 0 END) AS negative_cnt,
+                    ROUND(
+                        SUM(CASE WHEN c.sentiment_label = '消极' THEN 1 ELSE 0 END) * 100.0 / COUNT(*),
+                        2
+                    ) AS negative_rate
+                FROM comments c
+                JOIN post_risk_map m ON c.post_id = m.post_id
+                JOIN risk_issues r ON m.risk_id = r.risk_id
+                WHERE c.sentiment_label IS NOT NULL
+                GROUP BY r.risk_name
+                HAVING COUNT(*) > 0
+                ORDER BY total_cnt DESC
+            """)
+            return cursor.fetchall()
+    finally:
+        conn.close()
+
+
 # =========================
 # Risk Detail
 # =========================
@@ -363,28 +433,6 @@ def get_risk_theme_summary(risk_id, limit=10):
                 ORDER BY cnt DESC
                 LIMIT %s
             """, (risk_id, limit))
-            return cursor.fetchall()
-    finally:
-        conn.close()
-
-
-def get_risk_attitude_like_avg(risk_id):
-    conn = get_connection()
-    try:
-        with conn.cursor() as cursor:
-            cursor.execute("""
-                SELECT
-                    c.attitude_type,
-                    ROUND(AVG(COALESCE(c.like_count, 0)), 2) AS avg_like,
-                    COUNT(*) AS cnt
-                FROM comments c
-                JOIN post_risk_map m ON c.post_id = m.post_id
-                WHERE m.risk_id = %s
-                  AND c.attitude_type IS NOT NULL
-                GROUP BY c.attitude_type
-                HAVING COUNT(*) > 0
-                ORDER BY avg_like DESC, cnt DESC
-            """, (risk_id,))
             return cursor.fetchall()
     finally:
         conn.close()
@@ -724,6 +772,16 @@ def api_risk_trend():
     return jsonify(get_risk_trend_monthly(5))
 
 
+@app.route("/api/risk_cooccurrence")
+def api_risk_cooccurrence():
+    return jsonify(get_risk_cooccurrence_matrix())
+
+
+@app.route("/api/risk_heat_scatter")
+def api_risk_heat_scatter():
+    return jsonify(get_risk_heat_scatter())
+
+
 @app.route("/api/risk/<int:risk_id>/sentiment")
 def api_risk_sentiment(risk_id):
     return jsonify(get_risk_sentiment_summary(risk_id))
@@ -737,11 +795,6 @@ def api_risk_attitude(risk_id):
 @app.route("/api/risk/<int:risk_id>/themes")
 def api_risk_themes(risk_id):
     return jsonify(get_risk_theme_summary(risk_id, 10))
-
-
-@app.route("/api/risk/<int:risk_id>/attitude_likes")
-def api_risk_attitude_likes(risk_id):
-    return jsonify(get_risk_attitude_like_avg(risk_id))
 
 
 @app.route("/api/risk/<int:risk_id>/trend")

@@ -106,8 +106,8 @@
 <script>
 function sentimentColor(name) {
     if (name === "积极") return "#5B8FF9";
-    if (name === "中性") return "#9CCC65";
-    if (name === "消极") return "#F6BD16";
+    if (name === "中性") return "#91C95A";
+    if (name === "消极") return "#E76F51";
     return "#91A3B0";
 }
 
@@ -148,9 +148,26 @@ async function loadRiskAttitude() {
         },
         series: [{
             type: "bar",
-            data: data.map(d => d.cnt),
+            data: data.map((d, i) => ({
+                value: d.cnt,
+                itemStyle: {
+                    color: [
+                        "#4E79A7",
+                        "#5B8FF9",
+                        "#36CFC9",
+                        "#91C95A",
+                        "#F6BD16",
+                        "#F29E4C",
+                        "#E76F51",
+                        "#D1495B",
+                        "#B56576",
+                        "#7A7A7A"
+                    ][i % 10]
+                }
+            })),
             label: { show: true, position: "right" }
         }]
+        
     });
 }
 
@@ -170,9 +187,27 @@ async function loadRiskThemes() {
         },
         series: [{
             type: "bar",
-            data: data.map(d => d.cnt),
-            label: { show: true, position: "right" },
-            itemStyle: { color: "#5B8FF9" }
+            data: data.map((d, i) => ({
+                value: d.cnt,
+                itemStyle: {
+                    color: [
+                        "#4E79A7",
+                        "#5B8FF9",
+                        "#36CFC9",
+                        "#91C95A",
+                        "#F6BD16",
+                        "#F29E4C",
+                        "#E76F51",
+                        "#D1495B",
+                        "#B56576",
+                        "#7A7A7A"
+                    ][i % 10]
+                }
+            })),
+            label: {
+                show: true,
+                position: "right"
+            }
         }]
     });
 }
@@ -259,7 +294,10 @@ async function loadThemeAttitudeHeatmap() {
             calculable: true,
             orient: "horizontal",
             left: "center",
-            bottom: 15
+            bottom: 15,
+            inRange: {
+                color: ["#FFF4CC", "#F6BD16", "#E76F51", "#B83232"]
+            }
         },
         series: [{
             type: "heatmap",
@@ -292,7 +330,9 @@ async function loadRiskTrend() {
             type: "line",
             smooth: true,
             symbolSize: 8,
-            data: data.map(d => d.cnt)
+            data: data.map(d => d.cnt),
+            itemStyle: { color: "#4E79A7" },
+            lineStyle: { color: "#4E79A7", width: 3 }
         }]
     });
 }
@@ -316,7 +356,7 @@ async function loadRiskNegativeTrend() {
             symbolSize: 8,
             data: data.map(d => Number(d.cnt) || 0),
             itemStyle: { color: "#F6BD16" },
-            lineStyle: { color: "#F6BD16" }
+            lineStyle: { color: "#F6BD16", width: 3 }
         }]
     });
 }
