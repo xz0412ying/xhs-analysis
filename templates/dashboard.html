@@ -110,24 +110,6 @@
 </div>
 
 <script>
-function axisLabelNoRotate(width = 110) {
-    return {
-        rotate: 0,
-        interval: 0,
-        width: width,
-        overflow: "truncate"
-    };
-}
-
-function axisLabelVertical(width = 110) {
-    return {
-        rotate: 0,
-        interval: 0,
-        width: width,
-        overflow: "break"
-    };
-}
-
 function buildColorMapBySentiment(name) {
     if (name === "积极") return "#5B8FF9";
     if (name === "中性") return "#9CCC65";
@@ -292,7 +274,7 @@ async function loadRiskSentimentDistribution() {
         xAxis: {
             type: "category",
             data: riskNames,
-            axisLabel: axisLabelNoRotate(140)
+            axisLabel: { rotate: 25, interval: 0 }
         },
         yAxis: { type: "value" },
         series: series
@@ -325,7 +307,10 @@ async function loadRiskCooccurrenceHeatmap() {
             type: "category",
             data: risks,
             splitArea: { show: true },
-            axisLabel: axisLabelVertical(140)
+            axisLabel: {
+                rotate: 25,
+                interval: 0
+            }
         },
         yAxis: {
             type: "category",

@@ -268,6 +268,7 @@ body {
 
 .chart.large {
     height: 600px;
+<<<<<<< HEAD
 }
 
 .chart.xlarge {
@@ -364,4 +365,6 @@ body {
     background: #f8fafc;
     border-radius: 8px;
     color: #475569;
+=======
+>>>>>>> parent of c1f5d03 (分析完成)
 }

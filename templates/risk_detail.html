@@ -56,7 +56,7 @@
 <div class="card">
     <div class="card-title">主题 × 态度热力图</div>
     <div class="chart-note">用于分析不同子议题对应的公众态度差异，识别态度分化最明显的讨论主题。</div>
-    <div id="themeAttitudeHeatmap" class="chart xlarge"></div>
+    <div id="themeAttitudeHeatmap" class="chart large"></div>
 </div>
 
 <div class="card-grid two">
@@ -111,28 +111,6 @@ function sentimentColor(name) {
     return "#91A3B0";
 }
 
-function axisLabelNoRotate(width = 120) {
-    return {
-        rotate: 0,
-        interval: 0,
-        width: width,
-        overflow: "truncate"
-    };
-}
-
-const multiColors = [
-    "#4E79A7",
-    "#5B8FF9",
-    "#36CFC9",
-    "#91C95A",
-    "#F6BD16",
-    "#F29E4C",
-    "#E76F51",
-    "#D1495B",
-    "#B56576",
-    "#7A7A7A"
-];
-
 async function loadRiskSentiment() {
     const res = await fetch("/api/risk/{{ current_risk_id }}/sentiment");
     const data = await res.json();
@@ -143,16 +121,13 @@ async function loadRiskSentiment() {
         legend: { bottom: 0 },
         series: [{
             type: "pie",
-            radius: ["42%", "68%"],
-            center: ["50%", "48%"],
+            radius: ["40%", "70%"],
             data: data.map(d => ({
                 name: d.sentiment_label,
                 value: d.cnt,
                 itemStyle: { color: sentimentColor(d.sentiment_label) }
             })),
-            label: {
-                formatter: "{b}\n{d}%"
-            }
+            label: { formatter: "{b}\n{d}%" }
         }]
     });
 }
@@ -163,28 +138,17 @@ async function loadRiskAttitude() {
 
     const chart = echarts.init(document.getElementById("riskAttitudeBar"));
     chart.setOption({
-        tooltip: {
-            trigger: "item",
-            formatter: "{b}<br/>数量：{c}"
-        },
-        legend: {
-            bottom: 0,
-            type: "scroll"
+        tooltip: { trigger: "axis", axisPointer: { type: "shadow" } },
+        grid: { left: 120, right: 30, top: 20, bottom: 20 },
+        xAxis: { type: "value" },
+        yAxis: {
+            type: "category",
+            data: data.map(d => d.attitude_type),
+            axisLabel: { width: 100, overflow: "truncate" }
         },
         series: [{
-            name: "态度类型",
-            type: "pie",
-            radius: ["20%", "70%"],
-            center: ["50%", "45%"],
-            roseType: "radius",
-            itemStyle: {
-                borderRadius: 4
-            },
-            label: {
-                formatter: "{b}\n{c}"
-            },
+            type: "bar",
             data: data.map((d, i) => ({
-                name: d.attitude_type,
                 value: d.cnt,
                 itemStyle: {
                     color: [
@@ -200,8 +164,10 @@ async function loadRiskAttitude() {
                         "#7A7A7A"
                     ][i % 10]
                 }
-            }))
+            })),
+            label: { show: true, position: "right" }
         }]
+        
     });
 }
 
@@ -209,38 +175,20 @@ async function loadRiskThemes() {
     const res = await fetch("/api/risk/{{ current_risk_id }}/themes");
     const data = await res.json();
 
-    const names = data.map(d => d.assigned_theme);
-    const values = data.map(d => d.cnt);
-
     const chart = echarts.init(document.getElementById("riskThemeBar"));
     chart.setOption({
-        tooltip: {
-            trigger: "axis",
-            axisPointer: { type: "shadow" },
-            formatter: function(params) {
-                const p = params[0];
-                return `${p.name}<br/>数量：${p.value}`;
-            }
-        },
-        grid: { left: 60, right: 20, top: 20, bottom: 90 },
-        xAxis: {
-            type: "category",
-            data: names,
-            axisLabel: {
-                interval: 0,
-                formatter: function(value) {
-                    return value.length > 8 ? value.slice(0, 8) + "…" : value;
-                }
-            }
-        },
+        tooltip: { trigger: "axis", axisPointer: { type: "shadow" } },
+        grid: { left: 140, right: 30, top: 20, bottom: 20 },
+        xAxis: { type: "value" },
         yAxis: {
-            type: "value"
+            type: "category",
+            data: data.map(d => d.assigned_theme),
+            axisLabel: { width: 120, overflow: "truncate" }
         },
         series: [{
             type: "bar",
-            barWidth: 28,
-            data: values.map((v, i) => ({
-                value: v,
+            data: data.map((d, i) => ({
+                value: d.cnt,
                 itemStyle: {
                     color: [
                         "#4E79A7",
@@ -258,7 +206,7 @@ async function loadRiskThemes() {
             })),
             label: {
                 show: true,
-                position: "top"
+                position: "right"
             }
         }]
     });
@@ -277,7 +225,6 @@ async function loadThemeSentimentDistribution() {
         name: sentiment,
         type: "bar",
         stack: "total",
-        barWidth: 22,
         itemStyle: { color: sentimentColor(sentiment) },
         data: themes.map(theme => {
             const row = data.find(d => d.assigned_theme === theme && d.sentiment_label === sentiment);
@@ -289,19 +236,16 @@ async function loadThemeSentimentDistribution() {
     chart.setOption({
         tooltip: { trigger: "axis", axisPointer: { type: "shadow" } },
         legend: { top: 0 },
-        grid: { left: 180, right: 25, top: 50, bottom: 25 },
+        grid: { left: 70, right: 20, top: 50, bottom: 70 },
         xAxis: {
-            type: "value",
-            splitLine: { show: true }
-        },
-        yAxis: {
             type: "category",
             data: themes,
             axisLabel: {
-                width: 145,
-                overflow: "truncate"
+                rotate: 20,
+                interval: 0
             }
         },
+        yAxis: { type: "value" },
         series: series
     });
 }
@@ -313,6 +257,7 @@ async function loadThemeAttitudeHeatmap() {
     const themes = data.themes || [];
     const attitudes = data.attitudes || [];
     const values = data.values || [];
+
     const maxValue = values.length ? Math.max(...values.map(v => v[2])) : 0;
 
     const chart = echarts.init(document.getElementById("themeAttitudeHeatmap"));
@@ -324,25 +269,24 @@ async function loadThemeAttitudeHeatmap() {
             }
         },
         grid: {
-            left: 150,
+            left: 120,
             right: 30,
             top: 20,
-            bottom: 90
+            bottom: 80
         },
         xAxis: {
             type: "category",
             data: themes,
             splitArea: { show: true },
-            axisLabel: axisLabelNoRotate(120)
+            axisLabel: {
+                rotate: 20,
+                interval: 0
+            }
         },
         yAxis: {
             type: "category",
             data: attitudes,
-            splitArea: { show: true },
-            axisLabel: {
-                width: 110,
-                overflow: "truncate"
-            }
+            splitArea: { show: true }
         },
         visualMap: {
             min: 0,
@@ -350,7 +294,7 @@ async function loadThemeAttitudeHeatmap() {
             calculable: true,
             orient: "horizontal",
             left: "center",
-            bottom: 20,
+            bottom: 15,
             inRange: {
                 color: ["#FFF4CC", "#F6BD16", "#E76F51", "#B83232"]
             }
@@ -358,7 +302,13 @@ async function loadThemeAttitudeHeatmap() {
         series: [{
             type: "heatmap",
             data: values,
-            label: { show: true }
+            label: { show: true },
+            emphasis: {
+                itemStyle: {
+                    shadowBlur: 10,
+                    shadowColor: "rgba(0, 0, 0, 0.5)"
+                }
+            }
         }]
     });
 }
@@ -370,7 +320,7 @@ async function loadRiskTrend() {
     const chart = echarts.init(document.getElementById("riskTrendLine"));
     chart.setOption({
         tooltip: { trigger: "axis" },
-        grid: { left: 55, right: 25, top: 20, bottom: 40 },
+        grid: { left: 50, right: 20, top: 20, bottom: 40 },
         xAxis: {
             type: "category",
             data: data.map(d => d.dt)
@@ -394,7 +344,7 @@ async function loadRiskNegativeTrend() {
     const chart = echarts.init(document.getElementById("riskNegativeTrendLine"));
     chart.setOption({
         tooltip: { trigger: "axis" },
-        grid: { left: 55, right: 25, top: 20, bottom: 40 },
+        grid: { left: 50, right: 20, top: 20, bottom: 40 },
         xAxis: {
             type: "category",
             data: data.map(d => d.dt)
@@ -405,8 +355,8 @@ async function loadRiskNegativeTrend() {
             smooth: true,
             symbolSize: 8,
             data: data.map(d => Number(d.cnt) || 0),
-            itemStyle: { color: "#E76F51" },
-            lineStyle: { color: "#E76F51", width: 3 }
+            itemStyle: { color: "#F6BD16" },
+            lineStyle: { color: "#F6BD16", width: 3 }
         }]
     });
 }
