@@ -1,7 +1,9 @@
 from flask import Flask, render_template, jsonify
 import pymysql
+from workflow_ui.routes_workflow import workflow_bp
 
 app = Flask(__name__)
+app.register_blueprint(workflow_bp)
 
 DB_CONFIG = {
     "host": "127.0.0.1",
@@ -12,7 +14,6 @@ DB_CONFIG = {
     "charset": "utf8mb4",
     "cursorclass": pymysql.cursors.DictCursor
 }
-
 
 def get_connection():
     try:
@@ -970,4 +971,4 @@ def api_post_theme_attitude(post_id):
 
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(debug=False)

@@ -285,44 +285,40 @@ def insert_comments(conn, post_id, comments):
 # =========================
 # 5. 主程序
 # =========================
-def main():
-    conn = None
+# def main():
+#     conn = None
 
-    try:
-        print("=== 小红书帖子评论采集程序 ===")
-        url = input("请输入帖子URL：").strip()
-        title = input("请输入帖子标题：").strip()
-        publish_time = input("请输入发布时间：").strip()
-        content = input("请输入帖子内容：").strip()
+#     try:
+#         print("=== 小红书帖子评论采集程序 ===")
+#         url = input("请输入帖子URL：").strip()
+#         title = input("请输入帖子标题：").strip()
+#         publish_time = input("请输入发布时间：").strip()
+#         content = input("请输入帖子内容：").strip()
 
-        # 连接数据库
-        conn = get_connection()
-        print("数据库连接成功")
+#         # 连接数据库
+#         conn = get_connection()
+#         print("数据库连接成功")
 
-        # 1. 插入帖子
-        post_id = insert_post(conn, title, publish_time, content)
-        print(f"帖子已写入 posts 表，post_id = {post_id}")
+#         # 1. 插入帖子
+#         post_id = insert_post(conn, title, publish_time, content)
+#         print(f"帖子已写入 posts 表，post_id = {post_id}")
 
-        # 2. 根据 URL 爬取评论
-        comments = crawl_comments_by_url(url)
+#         # 2. 根据 URL 爬取评论
+#         comments = crawl_comments_by_url(url)
 
-        # 3. 插入评论
-        insert_comments(conn, post_id, comments)
-        print(f"评论已写入 comments 表，共 {len(comments)} 条")
+#         # 3. 插入评论
+#         insert_comments(conn, post_id, comments)
+#         print(f"评论已写入 comments 表，共 {len(comments)} 条")
 
-        print("全部完成")
+#         print("全部完成")
 
-    except Exception as e:
-        print("程序执行失败：", str(e))
+#     except Exception as e:
+#         print("程序执行失败：", str(e))
 
-    finally:
-        if conn:
-            try:
-                conn.close()
-                print("数据库连接已关闭")
-            except Exception:
-                pass
-
-
-if __name__ == "__main__":
-    main()
+#     finally:
+#         if conn:
+#             try:
+#                 conn.close()
+#                 print("数据库连接已关闭")
+#             except Exception:
+#                 pass

@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-title">单帖自动分析工作台</div>
+
+<div class="workflow-page">
+    <div class="workflow-card">
+        <div class="workflow-card-header">
+            <div class="workflow-card-title">任务信息填写</div>
+            <div class="workflow-card-desc">
+                输入小红书帖子链接和基础信息，系统将自动完成爬虫、入库、主题分析、情感分析、风险判断与单帖可视化。
+            </div>
+        </div>
+
+        <form method="post" action="/workflow/new" class="workflow-form">
+            <div class="form-item full">
+                <label for="url">小红书 URL</label>
+                <input
+                    id="url"
+                    type="text"
+                    name="url"
+                    placeholder="请输入小红书帖子链接"
+                    required
+                >
+            </div>
+
+            <div class="form-item full">
+                <label for="title">帖子标题</label>
+                <input
+                    id="title"
+                    type="text"
+                    name="title"
+                    placeholder="请输入帖子标题"
+                    required
+                >
+            </div>
+
+            <div class="form-row two-col">
+                <div class="form-item">
+                    <label for="publish_time">发布时间</label>
+                    <input
+                        id="publish_time"
+                        type="text"
+                        name="publish_time"
+                        placeholder="例如：2026-04-09"
+                        required
+                    >
+                </div>
+
+                <div class="form-item">
+                    <label for="platform">数据平台</label>
+                    <input
+                        id="platform"
+                        type="text"
+                        value="小红书"
+                        disabled
+                    >
+                </div>
+            </div>
+
+            <div class="form-item full">
+                <label for="content">帖子正文</label>
+                <textarea
+                    id="content"
+                    name="content"
+                    rows="10"
+                    placeholder="请输入帖子正文内容"
+                    required
+                ></textarea>
+            </div>
+
+            <div class="workflow-actions">
+                <button type="submit" class="primary-btn">开始分析</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

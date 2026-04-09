@@ -273,3 +273,337 @@ body {
 .chart.xlarge {
     height: 620px;
 }
+
+/* =========================
+   workflow submit page
+   ========================= */
+
+.workflow-page {
+    max-width: 980px;
+}
+
+.workflow-card {
+    background: #ffffff;
+    border-radius: 18px;
+    padding: 28px 32px;
+    box-shadow: 0 8px 24px rgba(15, 35, 95, 0.08);
+    border: 1px solid #eef2f7;
+}
+
+.workflow-card-header {
+    margin-bottom: 24px;
+}
+
+.workflow-card-title {
+    font-size: 22px;
+    font-weight: 700;
+    color: #1f2d3d;
+    margin-bottom: 8px;
+}
+
+.workflow-card-desc {
+    font-size: 14px;
+    line-height: 1.8;
+    color: #667085;
+}
+
+.workflow-form {
+    width: 100%;
+}
+
+.form-row.two-col {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 18px;
+}
+
+.form-item {
+    display: flex;
+    flex-direction: column;
+    margin-bottom: 18px;
+}
+
+.form-item.full {
+    width: 100%;
+}
+
+.form-item label {
+    font-size: 14px;
+    font-weight: 600;
+    color: #344054;
+    margin-bottom: 8px;
+}
+
+.form-item input,
+.form-item textarea {
+    width: 100%;
+    box-sizing: border-box;
+    border: 1px solid #d0d5dd;
+    border-radius: 10px;
+    padding: 12px 14px;
+    font-size: 14px;
+    line-height: 1.5;
+    color: #101828;
+    background: #ffffff;
+    transition: all 0.2s ease;
+    outline: none;
+}
+
+.form-item input {
+    height: 44px;
+}
+
+.form-item textarea {
+    min-height: 220px;
+    resize: vertical;
+}
+
+.form-item input:focus,
+.form-item textarea:focus {
+    border-color: #5b8ff9;
+    box-shadow: 0 0 0 3px rgba(91, 143, 249, 0.15);
+}
+
+.form-item input:disabled {
+    background: #f5f7fa;
+    color: #667085;
+    cursor: not-allowed;
+}
+
+.form-item input::placeholder,
+.form-item textarea::placeholder {
+    color: #98a2b3;
+}
+
+.workflow-actions {
+    margin-top: 10px;
+    display: flex;
+    justify-content: flex-end;
+}
+
+.primary-btn {
+    min-width: 140px;
+    height: 44px;
+    border: none;
+    border-radius: 10px;
+    background: linear-gradient(135deg, #5b8ff9 0%, #3b82f6 100%);
+    color: #ffffff;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    box-shadow: 0 8px 18px rgba(59, 130, 246, 0.25);
+    transition: all 0.2s ease;
+}
+
+.primary-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 10px 20px rgba(59, 130, 246, 0.32);
+}
+
+.primary-btn:active {
+    transform: translateY(0);
+}
+
+@media (max-width: 768px) {
+    .workflow-card {
+        padding: 20px 16px;
+    }
+
+    .form-row.two-col {
+        grid-template-columns: 1fr;
+        gap: 0;
+    }
+
+    .workflow-actions {
+        justify-content: stretch;
+    }
+
+    .primary-btn {
+        width: 100%;
+    }
+}
+
+/* =========================
+   workflow progress page
+   ========================= */
+
+.task-meta-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px 20px;
+    margin-bottom: 22px;
+}
+
+.task-meta-item {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.task-meta-item.full {
+    grid-column: 1 / -1;
+}
+
+.task-meta-label {
+    font-size: 13px;
+    color: #667085;
+}
+
+.task-meta-value {
+    font-size: 16px;
+    color: #101828;
+    font-weight: 600;
+}
+
+.task-status-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: fit-content;
+    min-width: 86px;
+    height: 32px;
+    border-radius: 999px;
+    padding: 0 14px;
+    font-size: 13px;
+    font-weight: 700;
+}
+
+.task-status-badge.pending {
+    background: #eef2ff;
+    color: #4f46e5;
+}
+
+.task-status-badge.running {
+    background: #e0ecff;
+    color: #2563eb;
+}
+
+.task-status-badge.success {
+    background: #e8f7ed;
+    color: #16a34a;
+}
+
+.task-status-badge.failed {
+    background: #fdeaea;
+    color: #dc2626;
+}
+
+.progress-section {
+    margin-bottom: 22px;
+}
+
+.progress-top {
+    display: flex;
+    justify-content: space-between;
+    font-size: 14px;
+    color: #344054;
+    margin-bottom: 10px;
+}
+
+.progress-track {
+    width: 100%;
+    height: 28px;
+    background: #e5e7eb;
+    border-radius: 999px;
+    overflow: hidden;
+}
+
+.progress-bar-fill {
+    height: 100%;
+    min-width: 0;
+    background: linear-gradient(90deg, #5b8ff9 0%, #3b82f6 100%);
+    color: #fff;
+    text-align: center;
+    line-height: 28px;
+    font-size: 13px;
+    font-weight: 700;
+    transition: width 0.35s ease;
+}
+
+.task-step-list {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    margin-bottom: 24px;
+}
+
+.task-step-item {
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    padding: 12px 14px;
+    font-size: 14px;
+    color: #667085;
+    background: #f8fafc;
+}
+
+.task-step-item.active-step {
+    border-color: #5b8ff9;
+    background: #eaf2ff;
+    color: #1d4ed8;
+    font-weight: 700;
+}
+
+.task-step-item.done-step {
+    border-color: #86efac;
+    background: #effcf3;
+    color: #15803d;
+}
+
+.task-result-box {
+    border-radius: 14px;
+    padding: 18px 20px;
+    margin-top: 8px;
+}
+
+.success-box {
+    background: #eefbf3;
+    border: 1px solid #b7ebc6;
+}
+
+.error-box {
+    background: #fff2f2;
+    border: 1px solid #fecaca;
+}
+
+.result-title {
+    font-size: 18px;
+    font-weight: 700;
+    margin-bottom: 8px;
+}
+
+.result-desc {
+    font-size: 14px;
+    color: #475467;
+    margin-bottom: 14px;
+    line-height: 1.8;
+}
+
+.error-details summary {
+    cursor: pointer;
+    font-size: 14px;
+    color: #b42318;
+    margin-bottom: 10px;
+}
+
+.error-details pre {
+    white-space: pre-wrap;
+    word-break: break-word;
+    background: #fff;
+    border: 1px solid #f3d0d0;
+    border-radius: 10px;
+    padding: 14px;
+    font-size: 12px;
+    color: #7a271a;
+    max-height: 320px;
+    overflow: auto;
+}
+
+@media (max-width: 768px) {
+    .task-meta-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .task-step-list {
+        grid-template-columns: 1fr;
+    }
+}
