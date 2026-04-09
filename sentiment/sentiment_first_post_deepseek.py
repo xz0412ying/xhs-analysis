@@ -24,8 +24,7 @@ DEEPSEEK_MODEL_NAME = "deepseek-chat"
 # =========================
 # 任务配置
 # =========================
-POST_RANK_START = 2
-POST_RANK_END = 31
+POST_RANK = 3
 REANALYZE_ALL_COMMENTS = True   # True=全部重跑；False=只跑 attitude_type 为空的评论
 
 
@@ -248,96 +247,90 @@ def save_comment_sentiment_result(conn, comment_id: int, sentiment_label: str, s
         """
         cursor.execute(sql, (sentiment_label, sentiment_score, attitude_type, comment_id))
 
-
-def run_deepseek_sentiment_analysis_for_post_range():
+def run_deepseek_sentiment_analysis_for_post():
     conn = None
     try:
         conn = create_db_connection()
         client = create_deepseek_client()
 
-        for post_rank in range(POST_RANK_START, POST_RANK_END + 1):
-            print(f"\n{'=' * 60}")
-            print(f"开始分析第 {post_rank} 条帖子")
-            print(f"{'=' * 60}")
+        print(f"\n{'=' * 60}")
+        print(f"开始分析第 {POST_RANK} 条帖子")
+        print(f"{'=' * 60}")
+
+        post = fetch_post_by_rank(conn, POST_RANK)
+        if not post:
+            print(f"posts 表中没有第 {POST_RANK} 条帖子，跳过。")
+            return
+
+        post_id = post["post_id"]
+        title = post.get("title", "")
+        publish_time = post.get("publish_time", "")
+
+        print(f"post_id: {post_id}")
+        print(f"title: {title}")
+        print(f"publish_time: {publish_time}")
+
+        comments = fetch_comments_for_post(
+            conn=conn,
+            post_id=post_id,
+            reanalyze_all=REANALYZE_ALL_COMMENTS
+        )
+
+        if not comments:
+            print("该帖子没有待分析评论，跳过。")
+            return
+
+        print(f"\n共找到 {len(comments)} 条评论，开始分析...\n")
+
+        positive_count = 0
+        neutral_count = 0
+        negative_count = 0
+
+        for index, row in enumerate(comments, start=1):
+            comment_id = row["comment_id"]
+            comment_content = row.get("comment_content", "")
+            comment_theme = row.get("assigned_theme", "")
 
             try:
-                post = fetch_post_by_rank(conn, post_rank)
-                if not post:
-                    print(f"posts 表中没有第 {post_rank} 条帖子，跳过。")
-                    continue
-
-                post_id = post["post_id"]
-                title = post.get("title", "")
-                publish_time = post.get("publish_time", "")
-
-                print(f"post_id: {post_id}")
-                print(f"title: {title}")
-                print(f"publish_time: {publish_time}")
-
-                comments = fetch_comments_for_post(
-                    conn=conn,
-                    post_id=post_id,
-                    reanalyze_all=REANALYZE_ALL_COMMENTS
+                sentiment_label, sentiment_score, attitude_type = analyze_comment_with_deepseek(
+                    client=client,
+                    comment_theme=comment_theme,
+                    comment_text=comment_content
                 )
 
-                if not comments:
-                    print("该帖子没有待分析评论，跳过。")
-                    continue
+                save_comment_sentiment_result(
+                    conn=conn,
+                    comment_id=comment_id,
+                    sentiment_label=sentiment_label,
+                    sentiment_score=sentiment_score,
+                    attitude_type=attitude_type
+                )
 
-                print(f"\n共找到 {len(comments)} 条评论，开始分析...\n")
+                conn.commit()
 
-                positive_count = 0
-                neutral_count = 0
-                negative_count = 0
+                if sentiment_label == "积极":
+                    positive_count += 1
+                elif sentiment_label == "消极":
+                    negative_count += 1
+                else:
+                    neutral_count += 1
 
-                for index, row in enumerate(comments, start=1):
-                    comment_id = row["comment_id"]
-                    comment_content = row.get("comment_content", "")
-                    comment_theme = row.get("assigned_theme", "")
-
-                    try:
-                        sentiment_label, sentiment_score, attitude_type = analyze_comment_with_deepseek(
-                            client=client,
-                            comment_theme=comment_theme,
-                            comment_text=comment_content
-                        )
-
-                        save_comment_sentiment_result(
-                            conn=conn,
-                            comment_id=comment_id,
-                            sentiment_label=sentiment_label,
-                            sentiment_score=sentiment_score,
-                            attitude_type=attitude_type
-                        )
-
-                        conn.commit()
-
-                        if sentiment_label == "积极":
-                            positive_count += 1
-                        elif sentiment_label == "消极":
-                            negative_count += 1
-                        else:
-                            neutral_count += 1
-
-                        print(
-                            f"[第{post_rank}帖 {index}/{len(comments)}] "
-                            f"comment_id={comment_id} | "
-                            f"theme={comment_theme} | "
-                            f"label={sentiment_label} | "
-                            f"score={sentiment_score} | "
-                            f"attitude={attitude_type} | "
-                            f"content={comment_content[:40]}"
-                        )
-
-                    except Exception as e:
-                        conn.rollback()
-                        print(f"[评论分析失败] 第{post_rank}帖 comment_id={comment_id} | error={e}")
-
-                print(f"\n第 {post_rank} 条帖子分析完成")
-                print(f"积极: {positive_count} | 中性: {neutral_count} | 消极: {negative_count}")
+                print(
+                    f"[第{POST_RANK}帖 {index}/{len(comments)}] "
+                    f"comment_id={comment_id} | "
+                    f"theme={comment_theme} | "
+                    f"label={sentiment_label} | "
+                    f"score={sentiment_score} | "
+                    f"attitude={attitude_type} | "
+                    f"content={comment_content[:40]}"
+                )
 
             except Exception as e:
-                print(f"[帖子分析失败] 第 {post_rank} 条帖子 | error={e}")
+                conn.rollback()
+                print(f"[评论分析失败] 第{POST_RANK}帖 comment_id={comment_id} | error={e}")
+
+        print(f"\n第 {POST_RANK} 条帖子分析完成")
+        print(f"积极: {positive_count} | 中性: {neutral_count} | 消极: {negative_count}")
 
     except Exception as e:
         print(f"程序运行出错: {e}")
@@ -345,6 +338,5 @@ def run_deepseek_sentiment_analysis_for_post_range():
         if conn:
             conn.close()
 
-
 if __name__ == "__main__":
-    run_deepseek_sentiment_analysis_for_post_range()
+    run_deepseek_sentiment_analysis_for_post()

@@ -16,6 +16,7 @@ DB_CONFIG = {
     "password": "123456",
     "database": "xiaohongshu_analysis",
     "charset": "utf8mb4",
+    "cursorclass": pymysql.cursors.DictCursor,
 }
 
 # DeepSeek API 配置
@@ -23,7 +24,7 @@ MODEL_NAME = os.getenv("LLM_MODEL", "deepseek-chat")
 API_KEY = os.getenv("DEEPSEEK_API_KEY", "").strip()
 BASE_URL = os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com/v1").strip()
 
-# 要分析 posts 表里按 post_id 排序后的第几条帖子
+# 只分析 posts 表里按 post_id 排序后的第几条帖子
 POST_RANK = 3
 
 # 送入大模型生成主题时，最多采样多少条评论
@@ -32,9 +33,6 @@ COMMENT_SAMPLE_SIZE = 90
 # 评论主题分配时使用的句向量模型
 EMBEDDING_MODEL_NAME = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
 
-# 语义相似度阈值：过低则回落到 theme1
-SIMILARITY_THRESHOLD = 0.05
-
 STOP_WORDS = {
     "的", "了", "是", "我", "你", "他", "她", "它", "这", "那", "也", "都", "就", "很",
     "吗", "啊", "吧", "呢", "呀", "哦", "有", "在", "和", "与", "及", "被", "还",
@@ -42,7 +40,6 @@ STOP_WORDS = {
     "而且", "还是", "已经", "没有", "可以", "觉得", "感觉"
 }
 
-# 纯表态评论词表
 EXPRESSIVE_WORDS = {
     "支持", "赞同", "同意", "确实", "是的", "对的", "没错", "正确", "赞成", "认同",
     "对", "完全同意", "非常赞同", "我也是", "我也觉得", "我也这么认为",
@@ -65,11 +62,16 @@ def get_connection():
     return pymysql.connect(**DB_CONFIG)
 
 
+def clean_text(text: str) -> str:
+    text = (text or "").strip()
+    text = re.sub(r"\s+", " ", text)
+    return text
+
+
 def get_post_by_rank(conn, rank: int):
     if rank < 1:
-        raise ValueError("rank 必须 >= 1")
+        raise ValueError("POST_RANK 必须 >= 1")
 
-    offset = rank - 1
     sql = """
         SELECT post_id, title, content
         FROM posts
@@ -77,17 +79,8 @@ def get_post_by_rank(conn, rank: int):
         LIMIT 1 OFFSET %s
     """
     with conn.cursor() as cursor:
-        cursor.execute(sql, (offset,))
-        row = cursor.fetchone()
-
-    if not row:
-        return None
-
-    return {
-        "post_id": row[0],
-        "title": row[1] or "",
-        "content": row[2] or "",
-    }
+        cursor.execute(sql, (rank - 1,))
+        return cursor.fetchone()
 
 
 def get_post_comments(conn, post_id: int, limit: int = 800):
@@ -105,22 +98,13 @@ def get_post_comments(conn, post_id: int, limit: int = 800):
         rows = cursor.fetchall()
 
     comments = []
-    for comment_id, text, like_count in rows:
-        text = (text or "").strip()
-        if not text:
-            continue
+    for row in rows:
         comments.append({
-            "comment_id": int(comment_id),
-            "comment_content": text,
-            "like_count": int(like_count or 0),
+            "comment_id": int(row["comment_id"]),
+            "comment_content": clean_text(row["comment_content"]),
+            "like_count": int(row["like_count"] or 0),
         })
     return comments
-
-
-def clean_text(text: str) -> str:
-    text = (text or "").strip()
-    text = re.sub(r"\s+", " ", text)
-    return text
 
 
 def tokenize_zh(text: str):
@@ -151,7 +135,6 @@ def is_expressive_comment(text: str) -> bool:
     if not tokens:
         return True
 
-    # 如果有效词很少，且都属于表态词，则视为纯表态
     if len(tokens) <= 3 and all(token in EXPRESSIVE_WORDS for token in tokens):
         return True
 
@@ -184,7 +167,6 @@ def select_representative_comments(comments, keep_count=60):
 
     merged = top_part + middle_part + low_part
 
-    # 去重，保持顺序
     seen = set()
     result = []
     for c in merged:
@@ -296,9 +278,6 @@ def call_llm_generate_themes(post, comments):
 
 
 def build_comment_text_for_embedding(post, comment_text: str) -> str:
-    """
-    给评论补一点主帖上下文，提升短评论语义匹配效果。
-    """
     title = clean_text(post.get("title", ""))
     content = clean_text(post.get("content", ""))[:120]
     comment_text = clean_text(comment_text)
@@ -306,18 +285,8 @@ def build_comment_text_for_embedding(post, comment_text: str) -> str:
 
 
 def assign_comment_themes(post, comments, theme1, theme2, theme3, debug=False):
-    """
-    改进版规则：
-    1. 纯表态评论 -> theme1
-    2. 非纯表态评论：
-       - 先只比较 theme2 和 theme3
-       - 如果明显更接近某一个延伸主题，则归到该主题
-       - 如果两个延伸主题都不像，或差距太小，则回到 theme1
-    """
-
     model = SentenceTransformer(EMBEDDING_MODEL_NAME)
 
-    # 只给延伸主题做相似度匹配，避免 theme1 这个“总主题”吸走所有评论
     extension_theme_texts = [
         f"评论区主要延伸争议点：{theme2}",
         f"评论区第二延伸争议点：{theme3}",
@@ -340,13 +309,11 @@ def assign_comment_themes(post, comments, theme1, theme2, theme3, debug=False):
         else:
             non_expressive_comments.append(comment)
 
-    # 1) 纯表态评论直接归 theme1
     for comment in expressive_comments:
         assigned_theme = theme1
         updates.append((assigned_theme, comment["comment_id"], post["post_id"]))
         theme_count[assigned_theme] += 1
 
-    # 2) 非纯表态评论批量做句向量匹配
     if non_expressive_comments:
         enhanced_comments = [
             build_comment_text_for_embedding(post, c["comment_content"])
@@ -360,28 +327,17 @@ def assign_comment_themes(post, comments, theme1, theme2, theme3, debug=False):
 
         sims_matrix = cosine_similarity(comment_embeddings, extension_theme_embeddings)
 
-        # 可调参数
-        # top_score 太低：说明不像 theme2/theme3，回 theme1
         low_similarity_threshold = 0.20
-
-        # 第一名和第二名差距太小：说明无法稳定区分，回 theme1
         margin_threshold = 0.01
-
         extension_themes = [theme2, theme3]
 
         for idx, comment in enumerate(non_expressive_comments):
             sims = sims_matrix[idx]
             best_idx = int(sims.argmax())
             best_score = float(sims[best_idx])
-
-            # 因为这里只有两个延伸主题，所以另一个就是 1 - best_idx
             second_score = float(sims[1 - best_idx])
             score_gap = best_score - second_score
 
-            # 判定逻辑：
-            # 1. 两个延伸主题都不够像 -> 回 theme1
-            # 2. 两个延伸主题分不清 -> 回 theme1
-            # 3. 否则 -> 分到更像的那个延伸主题
             if best_score < low_similarity_threshold or score_gap < margin_threshold:
                 assigned_theme = theme1
             else:
@@ -434,10 +390,17 @@ def main():
     try:
         conn = get_connection()
 
+        print(f"{'=' * 60}")
+        print(f"开始处理第 {POST_RANK} 条帖子")
+        print(f"{'=' * 60}")
+
         post = get_post_by_rank(conn, POST_RANK)
         if not post:
-            print(f"posts 表中没有第 {POST_RANK} 条帖子（数据不足或 OFFSET 越界）。")
+            print(f"posts 表中没有第 {POST_RANK} 条帖子。")
             return
+
+        print(f"post_id: {post['post_id']}")
+        print(f"title: {post['title']}")
 
         comments = get_post_comments(conn, post["post_id"], limit=800)
         if not comments:
@@ -464,7 +427,7 @@ def main():
 
         print("开始为评论分配主题...")
         updates, theme_count = assign_comment_themes(
-            post, comments, theme1, theme2, theme3, debug=True
+            post, comments, theme1, theme2, theme3, debug=False
         )
         update_comment_assigned_theme(conn, updates)
 
