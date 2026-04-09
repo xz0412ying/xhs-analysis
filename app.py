@@ -675,135 +675,7 @@ def get_post_sentiment_summary(post_id):
         conn.close()
 
 
-def get_post_attitude_summary(post_id):
-    conn = get_connection()
-    try:
-        with conn.cursor() as cursor:
-            cursor.execute("""
-                SELECT attitude_type, COUNT(*) AS cnt
-                FROM comments
-                WHERE post_id = %s
-                  AND attitude_type IS NOT NULL
-                GROUP BY attitude_type
-                ORDER BY cnt DESC
-            """, (post_id,))
-            return cursor.fetchall()
-    finally:
-        conn.close()
-
-
-def get_post_theme_summary(post_id, limit=10):
-    conn = get_connection()
-    try:
-        with conn.cursor() as cursor:
-            cursor.execute("""
-                SELECT assigned_theme, COUNT(*) AS cnt
-                FROM comments
-                WHERE post_id = %s
-                  AND assigned_theme IS NOT NULL
-                  AND assigned_theme <> ''
-                GROUP BY assigned_theme
-                ORDER BY cnt DESC
-                LIMIT %s
-            """, (post_id, limit))
-            return cursor.fetchall()
-    finally:
-        conn.close()
-
-
-def get_post_theme_sentiment_distribution(post_id, theme_limit=8):
-    conn = get_connection()
-    try:
-        with conn.cursor() as cursor:
-            cursor.execute("""
-                SELECT assigned_theme
-                FROM (
-                    SELECT assigned_theme, COUNT(*) AS cnt
-                    FROM comments
-                    WHERE post_id = %s
-                      AND assigned_theme IS NOT NULL
-                      AND assigned_theme <> ''
-                    GROUP BY assigned_theme
-                    ORDER BY cnt DESC
-                    LIMIT %s
-                ) t
-            """, (post_id, theme_limit))
-            top_theme_rows = cursor.fetchall()
-            top_themes = [row["assigned_theme"] for row in top_theme_rows]
-
-            if not top_themes:
-                return []
-
-            placeholders = ",".join(["%s"] * len(top_themes))
-            sql = f"""
-                SELECT assigned_theme, sentiment_label, COUNT(*) AS cnt
-                FROM comments
-                WHERE post_id = %s
-                  AND assigned_theme IN ({placeholders})
-                  AND sentiment_label IS NOT NULL
-                GROUP BY assigned_theme, sentiment_label
-                ORDER BY assigned_theme, sentiment_label
-            """
-            cursor.execute(sql, [post_id] + top_themes)
-            return cursor.fetchall()
-    finally:
-        conn.close()
-
-
-def get_post_theme_attitude_matrix(post_id, theme_limit=8):
-    conn = get_connection()
-    try:
-        with conn.cursor() as cursor:
-            cursor.execute("""
-                SELECT assigned_theme
-                FROM (
-                    SELECT assigned_theme, COUNT(*) AS cnt
-                    FROM comments
-                    WHERE post_id = %s
-                      AND assigned_theme IS NOT NULL
-                      AND assigned_theme <> ''
-                    GROUP BY assigned_theme
-                    ORDER BY cnt DESC
-                    LIMIT %s
-                ) t
-            """, (post_id, theme_limit))
-            top_theme_rows = cursor.fetchall()
-            top_themes = [row["assigned_theme"] for row in top_theme_rows]
-
-            if not top_themes:
-                return {"themes": [], "attitudes": [], "values": []}
-
-            placeholders = ",".join(["%s"] * len(top_themes))
-            sql = f"""
-                SELECT assigned_theme, attitude_type, COUNT(*) AS cnt
-                FROM comments
-                WHERE post_id = %s
-                  AND assigned_theme IN ({placeholders})
-                  AND attitude_type IS NOT NULL
-                GROUP BY assigned_theme, attitude_type
-                ORDER BY assigned_theme, attitude_type
-            """
-            cursor.execute(sql, [post_id] + top_themes)
-            rows = cursor.fetchall()
-
-            attitudes = sorted(list({row["attitude_type"] for row in rows if row["attitude_type"]}))
-            values = []
-            for row in rows:
-                if row["assigned_theme"] in top_themes and row["attitude_type"] in attitudes:
-                    x = top_themes.index(row["assigned_theme"])
-                    y = attitudes.index(row["attitude_type"])
-                    values.append([x, y, row["cnt"]])
-
-            return {
-                "themes": top_themes,
-                "attitudes": attitudes,
-                "values": values
-            }
-    finally:
-        conn.close()
-
-
-def get_post_comments(post_id, limit=15):
+def get_post_comments(post_id, limit=10):
     conn = get_connection()
     try:
         with conn.cursor() as cursor:
@@ -902,7 +774,8 @@ def post_detail(post_id):
         posts_for_sidebar=posts_for_sidebar,
         post=post,
         post_risks=post_risks,
-        comments=get_post_comments(post_id, 15)
+        post_sentiment=get_post_sentiment_summary(post_id),
+        comments=get_post_comments(post_id, 10)
     )
 
 
@@ -983,26 +856,6 @@ def api_risk_theme_sentiment_distribution(risk_id):
 @app.route("/api/post/<int:post_id>/sentiment")
 def api_post_sentiment(post_id):
     return jsonify(get_post_sentiment_summary(post_id))
-
-
-@app.route("/api/post/<int:post_id>/attitude")
-def api_post_attitude(post_id):
-    return jsonify(get_post_attitude_summary(post_id))
-
-
-@app.route("/api/post/<int:post_id>/themes")
-def api_post_themes(post_id):
-    return jsonify(get_post_theme_summary(post_id, 10))
-
-
-@app.route("/api/post/<int:post_id>/theme_sentiment_distribution")
-def api_post_theme_sentiment(post_id):
-    return jsonify(get_post_theme_sentiment_distribution(post_id, 8))
-
-
-@app.route("/api/post/<int:post_id>/theme_attitude_matrix")
-def api_post_theme_attitude(post_id):
-    return jsonify(get_post_theme_attitude_matrix(post_id, 8))
 
 
 if __name__ == "__main__":
