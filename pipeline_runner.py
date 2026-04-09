@@ -7,10 +7,9 @@ DB_CONFIG = {
     "host": "127.0.0.1",
     "port": 3306,
     "user": "root",
-    "password": "你的mysql密码",
+    "password": "123456",
     "database": "xiaohongshu_analysis",
-    "charset": "utf8mb4",
-    "cursorclass": pymysql.cursors.DictCursor
+    "charset": "utf8mb4"
 }
 
 
@@ -108,6 +107,7 @@ def main(task_id, post_id, url):
             message="任务已创建，准备开始分析"
         )
 
+        # 1. 爬虫：爬取评论
         run_step(
             [py, "crawler.py", "--post-id", str(post_id), "--url", url],
             "评论爬取与入库",
@@ -115,6 +115,7 @@ def main(task_id, post_id, url):
             25
         )
 
+        # 2. 主题分析
         run_step(
             [py, "theme/theme_generate_deepseek_first_post.py", "--post-id", str(post_id)],
             "主题分析",
@@ -122,6 +123,7 @@ def main(task_id, post_id, url):
             50
         )
 
+        # 3. 情感分析
         run_step(
             [py, "sentiment/sentiment_first_post_deepseek.py", "--post-id", str(post_id)],
             "情感与态度分析",
@@ -129,6 +131,7 @@ def main(task_id, post_id, url):
             75
         )
 
+        # 4. 风险映射
         run_step(
             [py, "risk_issues_map.py", "--post-id", str(post_id)],
             "风险映射更新",

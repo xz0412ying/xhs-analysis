@@ -5,6 +5,7 @@ import pymysql
 import subprocess
 import sys
 import threading
+import os
 
 app = Flask(__name__)
 app.secret_key = "xhs_analysis_secret_key_2026"
@@ -48,6 +49,11 @@ def get_analysis_task(task_id):
 def run_pipeline_async(task_id, post_id, url):
     def target():
         try:
+            # 设置环境变量以避免编码问题
+            env = os.environ.copy()
+            env['PYTHONIOENCODING'] = 'utf-8'
+            env['PYTHONUTF8'] = '1'
+            
             cmd = [
                 sys.executable,
                 "pipeline_runner.py",
@@ -55,7 +61,20 @@ def run_pipeline_async(task_id, post_id, url):
                 str(post_id),
                 url
             ]
-            subprocess.run(cmd, check=True)
+            print("执行命令：", " ".join(cmd))
+            result = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="ignore",
+                env=env
+            )
+            print("返回码：", result.returncode)
+            print("标准输出：", result.stdout)
+            print("标准错误：", result.stderr)
+            if result.returncode != 0:
+                print("命令执行失败：", result.stderr)
         except Exception as e:
             print("后台任务执行失败：", e)
 

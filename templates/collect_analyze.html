@@ -1,0 +1,142 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-title">新建分析任务</div>
+
+<div class="card">
+    <div class="card-title">小红书帖子分析</div>
+    <form id="analyzeForm" action="{{ url_for('submit_post_analysis') }}" method="POST">
+        <div class="form-group">
+            <label for="url">小红书URL</label>
+            <input type="text" id="url" name="url" required 
+                   placeholder="请输入小红书帖子链接，例如：https://www.xiaohongshu.com/explore/xxx">
+        </div>
+
+        <div class="form-group">
+            <label for="title">帖子标题</label>
+            <input type="text" id="title" name="title" required 
+                   placeholder="请输入帖子标题">
+        </div>
+
+        <div class="form-group">
+            <label for="publish_time">发布时间</label>
+            <input type="datetime-local" id="publish_time" name="publish_time" required>
+        </div>
+
+        <div class="form-group">
+            <label for="content">帖子内容</label>
+            <textarea id="content" name="content" rows="5" required 
+                      placeholder="请输入帖子正文内容"></textarea>
+        </div>
+
+        <div class="form-actions">
+            <button type="submit" class="btn-primary" id="submitBtn">
+                开始分析
+            </button>
+        </div>
+    </form>
+</div>
+
+<div class="card">
+    <div class="card-title">分析流程说明</div>
+    <div class="desc-text">
+        <ol>
+            <li><strong>爬取评论</strong>：从指定URL爬取小红书帖子的评论数据</li>
+            <li><strong>主题分析</strong>：使用DeepSeek大模型分析帖子和评论的主题</li>
+            <li><strong>情感分析</strong>：使用DeepSeek大模型分析评论的情感和态度</li>
+            <li><strong>风险映射</strong>：将帖子和评论映射到风险类别</li>
+            <li><strong>生成报告</strong>：自动生成分析报告并更新风险界面数据</li>
+        </ol>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-title">注意事项</div>
+    <div class="desc-text">
+        <ul>
+            <li>请确保小红书URL有效且可访问</li>
+            <li>帖子内容应包含完整的正文信息</li>
+            <li>分析过程可能需要几分钟，请耐心等待</li>
+            <li>分析完成后将自动跳转到帖子详情页</li>
+        </ul>
+    </div>
+</div>
+
+<style>
+.form-group {
+    margin-bottom: 20px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 700;
+    color: #1f2d3d;
+}
+
+.form-group input,
+.form-group textarea {
+    width: 100%;
+    padding: 12px;
+    border: 1px solid #dcdfe6;
+    border-radius: 6px;
+    font-size: 14px;
+    box-sizing: border-box;
+    transition: border-color 0.3s;
+}
+
+.form-group input:focus,
+.form-group textarea:focus {
+    outline: none;
+    border-color: #2f6bff;
+}
+
+.form-actions {
+    margin-top: 30px;
+}
+
+.btn-primary {
+    background: #2f6bff;
+    color: #fff;
+    padding: 12px 30px;
+    border: none;
+    border-radius: 6px;
+    font-size: 16px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.3s;
+}
+
+.btn-primary:hover {
+    background: #1f55cc;
+}
+
+.btn-primary:disabled {
+    background: #a0cfff;
+    cursor: not-allowed;
+}
+</style>
+
+<script>
+// 自动设置发布时间为当前时间
+document.addEventListener('DOMContentLoaded', function() {
+    const publishTimeInput = document.getElementById('publish_time');
+    if (publishTimeInput) {
+        const now = new Date();
+        const localISOTime = now.toISOString().slice(0, 16);
+        publishTimeInput.value = localISOTime;
+    }
+
+    // 表单提交处理
+    const form = document.getElementById('analyzeForm');
+    const submitBtn = document.getElementById('submitBtn');
+    
+    if (form && submitBtn) {
+        form.addEventListener('submit', function(e) {
+            submitBtn.disabled = true;
+            submitBtn.textContent = '分析中...';
+        });
+    }
+});
+</script>
+{% endblock %}
