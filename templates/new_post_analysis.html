@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-title">新建分析任务</div>
+
+<div class="card">
+    <div class="card-title">输入小红书帖子信息</div>
+    <div class="chart-note">
+        输入帖子 URL 与基础信息后，系统将自动完成评论抓取、主题分析、情感分析和风险映射，
+        最终跳转到单帖子分析页。
+    </div>
+
+    <form method="post" action="{{ url_for('submit_post_analysis') }}" class="form-box">
+        <div class="form-item">
+            <label>小红书 URL</label>
+            <input type="text" name="url" required placeholder="请输入帖子链接">
+        </div>
+
+        <div class="form-item">
+            <label>帖子标题</label>
+            <input type="text" name="title" required placeholder="请输入帖子标题">
+        </div>
+
+        <div class="form-item">
+            <label>发布时间</label>
+            <input type="text" name="publish_time" placeholder="例如 2026-04-10 14:30:00">
+        </div>
+
+        <div class="form-item">
+            <label>帖子正文</label>
+            <textarea name="content" rows="8" placeholder="请输入帖子正文内容"></textarea>
+        </div>
+
+        <div class="form-actions">
+            <button type="submit" class="primary-btn">开始分析</button>
+        </div>
+    </form>
+</div>
+{% endblock %}

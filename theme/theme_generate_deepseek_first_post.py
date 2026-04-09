@@ -1,6 +1,7 @@
 import json
 import os
 import re
+import argparse
 from collections import Counter
 
 import jieba
@@ -60,6 +61,24 @@ EXPRESSIVE_PATTERNS = [
     r"^\s*(好|不错|太好了)+\s*$",
 ]
 
+def get_post_by_id(conn, post_id: int):
+    sql = """
+        SELECT post_id, title, content
+        FROM posts
+        WHERE post_id = %s
+    """
+    with conn.cursor() as cursor:
+        cursor.execute(sql, (post_id,))
+        row = cursor.fetchone()
+
+    if not row:
+        return None
+
+    return {
+        "post_id": row[0],
+        "title": row[1] or "",
+        "content": row[2] or "",
+    }
 
 def get_connection():
     return pymysql.connect(**DB_CONFIG)
@@ -430,13 +449,17 @@ def update_comment_assigned_theme(conn, updates):
 
 
 def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--post-id", type=int, required=True)
+    args = parser.parse_args()
+
     conn = None
     try:
         conn = get_connection()
 
-        post = get_post_by_rank(conn, POST_RANK)
+        post = get_post_by_id(conn, args.post_id)
         if not post:
-            print(f"posts 表中没有第 {POST_RANK} 条帖子（数据不足或 OFFSET 越界）。")
+            print(f"posts 表中没有 post_id={args.post_id} 的帖子。")
             return
 
         comments = get_post_comments(conn, post["post_id"], limit=800)
@@ -464,7 +487,7 @@ def main():
 
         print("开始为评论分配主题...")
         updates, theme_count = assign_comment_themes(
-            post, comments, theme1, theme2, theme3, debug=True
+            post, comments, theme1, theme2, theme3, debug=False
         )
         update_comment_assigned_theme(conn, updates)
 
@@ -473,8 +496,6 @@ def main():
 
     except Exception as e:
         print("执行失败：", str(e))
-        print("如缺少依赖，请安装：")
-        print("python -m pip install openai pymysql sentence-transformers scikit-learn jieba")
     finally:
         if conn:
             conn.close()

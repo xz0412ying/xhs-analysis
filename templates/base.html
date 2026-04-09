@@ -15,6 +15,10 @@
         <aside class="sidebar">
             <div class="nav-group">
                 <div class="nav-group-title">总览</div>
+                <a href="{{ url_for('new_post_analysis') }}"
+                    class="nav-item {% if current_page == 'new_post_analysis' %}active{% endif %}">
+                    新建分析任务
+                </a>
                 <a href="{{ url_for('dashboard') }}"
                    class="nav-item {% if current_page == 'dashboard' %}active{% endif %}">
                     总风险页

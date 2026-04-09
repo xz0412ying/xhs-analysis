@@ -1,7 +1,13 @@
 from flask import Flask, render_template, jsonify
+from flask import request, redirect, url_for, flash
+import pipeline_runner
 import pymysql
+import subprocess
+import sys
+import threading
 
 app = Flask(__name__)
+app.secret_key = "xhs_analysis_secret_key_2026"
 
 DB_CONFIG = {
     "host": "127.0.0.1",
@@ -13,6 +19,61 @@ DB_CONFIG = {
     "cursorclass": pymysql.cursors.DictCursor
 }
 
+def create_analysis_task(post_id, url):
+    conn = get_connection()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute("""
+                INSERT INTO analysis_tasks (post_id, url, status, current_step, progress_percent, message)
+                VALUES (%s, %s, 'pending', '等待开始', 0, '任务已创建')
+            """, (post_id, url))
+            conn.commit()
+            return cursor.lastrowid
+    finally:
+        conn.close()
+
+def get_analysis_task(task_id):
+    conn = get_connection()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute("""
+                SELECT task_id, post_id, status, current_step, progress_percent, message, error_message
+                FROM analysis_tasks
+                WHERE task_id = %s
+            """, (task_id,))
+            return cursor.fetchone()
+    finally:
+        conn.close()
+
+def run_pipeline_async(task_id, post_id, url):
+    def target():
+        try:
+            cmd = [
+                sys.executable,
+                "pipeline_runner.py",
+                str(task_id),
+                str(post_id),
+                url
+            ]
+            subprocess.run(cmd, check=True)
+        except Exception as e:
+            print("后台任务执行失败：", e)
+
+    thread = threading.Thread(target=target, daemon=True)
+    thread.start()
+
+def create_post(title, publish_time, content):
+    conn = get_connection()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute("""
+                INSERT INTO posts (title, publish_time, content)
+                VALUES (%s, %s, %s)
+            """, (title, publish_time if publish_time else None, content))
+            conn.commit()
+            return cursor.lastrowid
+    finally:
+        conn.close()
 
 def get_connection():
     try:
@@ -805,6 +866,68 @@ def get_post_comments(post_id, limit=15):
 # =========================
 # Routes
 # =========================
+@app.route("/new_post_analysis", methods=["GET"])
+def new_post_analysis():
+    risks = get_all_risks()
+    return render_template(
+        "new_post_analysis.html",
+        page_title="新建帖子分析",
+        risks=risks,
+        current_page="new_post_analysis",
+        current_risk_id=None,
+        current_post_id=None,
+        posts_for_sidebar=[]
+    )
+
+@app.route("/submit_post_analysis", methods=["POST"])
+def submit_post_analysis():
+    try:
+        url = request.form.get("url", "").strip()
+        title = request.form.get("title", "").strip()
+        publish_time = request.form.get("publish_time", "").strip()
+        content = request.form.get("content", "").strip()
+
+        if not url or not title:
+            flash("URL 和标题不能为空")
+            return redirect(url_for("new_post_analysis"))
+
+        post_id = create_post(title, publish_time, content)
+        task_id = create_analysis_task(post_id, url)
+
+        run_pipeline_async(task_id, post_id, url)
+
+        return redirect(url_for("analysis_progress", task_id=task_id))
+
+    except Exception as e:
+        print("submit_post_analysis 出错：", e)
+        flash(f"分析流程失败：{e}")
+        return redirect(url_for("new_post_analysis"))
+
+@app.route("/analysis_progress/<int:task_id>")
+def analysis_progress(task_id):
+    risks = get_all_risks()
+    task = get_analysis_task(task_id)
+    if not task:
+        flash("任务不存在")
+        return redirect(url_for("new_post_analysis"))
+
+    return render_template(
+        "analysis_progress.html",
+        page_title="分析进度",
+        risks=risks,
+        current_page="analysis_progress",
+        current_risk_id=None,
+        current_post_id=None,
+        posts_for_sidebar=[],
+        task=task
+    )
+
+@app.route("/api/analysis_task/<int:task_id>")
+def api_analysis_task(task_id):
+    task = get_analysis_task(task_id)
+    if not task:
+        return jsonify({"error": "task not found"}), 404
+    return jsonify(task)
 
 @app.route("/")
 @app.route("/dashboard")

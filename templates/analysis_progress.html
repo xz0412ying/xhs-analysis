@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-title">分析进度</div>
+
+<div class="card">
+    <div class="card-title">任务执行中</div>
+    <div class="chart-note">系统正在依次执行评论抓取、主题分析、情感分析和风险映射，请稍候。</div>
+
+    <div class="progress-wrapper">
+        <div class="progress-bar-bg">
+            <div id="progressBar" class="progress-bar-fill" style="width: {{ task.progress_percent }}%;">
+                <span id="progressText">{{ task.progress_percent }}%</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="progress-info">
+        <p><strong>当前阶段：</strong><span id="currentStep">{{ task.current_step }}</span></p>
+        <p><strong>状态说明：</strong><span id="currentMessage">{{ task.message }}</span></p>
+        <p id="errorBox" style="display:none; color:#c62828;"><strong>错误信息：</strong><span id="errorText"></span></p>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-title">流程阶段</div>
+    <div class="step-list">
+        <div class="step-item">1. 评论爬取与入库</div>
+        <div class="step-item">2. 主题分析</div>
+        <div class="step-item">3. 情感与态度分析</div>
+        <div class="step-item">4. 风险映射更新</div>
+        <div class="step-item">5. 生成可视化结果</div>
+    </div>
+</div>
+
+<script>
+const taskId = {{ task.task_id }};
+const postId = {{ task.post_id }};
+
+async function pollTaskStatus() {
+    try {
+        const res = await fetch(`/api/analysis_task/${taskId}`);
+        const data = await res.json();
+
+        if (data.error) return;
+
+        document.getElementById("progressBar").style.width = `${data.progress_percent}%`;
+        document.getElementById("progressText").innerText = `${data.progress_percent}%`;
+        document.getElementById("currentStep").innerText = data.current_step || "";
+        document.getElementById("currentMessage").innerText = data.message || "";
+
+        if (data.status === "failed") {
+            document.getElementById("errorBox").style.display = "block";
+            document.getElementById("errorText").innerText = data.error_message || "未知错误";
+            return;
+        }
+
+        if (data.status === "completed") {
+            window.location.href = `/post/${postId}`;
+            return;
+        }
+
+        setTimeout(pollTaskStatus, 2000);
+    } catch (e) {
+        console.error("轮询任务状态失败：", e);
+        setTimeout(pollTaskStatus, 3000);
+    }
+}
+
+pollTaskStatus();
+</script>
+{% endblock %}

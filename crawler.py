@@ -1,6 +1,7 @@
 import re
 import time
 import pymysql
+import argparse
 from DrissionPage import ChromiumPage
 
 
@@ -286,31 +287,24 @@ def insert_comments(conn, post_id, comments):
 # 5. 主程序
 # =========================
 def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--post-id", type=int, required=True)
+    parser.add_argument("--url", type=str, required=True)
+    args = parser.parse_args()
+
     conn = None
 
     try:
-        print("=== 小红书帖子评论采集程序 ===")
-        url = input("请输入帖子URL：").strip()
-        title = input("请输入帖子标题：").strip()
-        publish_time = input("请输入发布时间：").strip()
-        content = input("请输入帖子内容：").strip()
+        post_id = args.post_id
+        url = args.url
 
-        # 连接数据库
         conn = get_connection()
         print("数据库连接成功")
 
-        # 1. 插入帖子
-        post_id = insert_post(conn, title, publish_time, content)
-        print(f"帖子已写入 posts 表，post_id = {post_id}")
-
-        # 2. 根据 URL 爬取评论
         comments = crawl_comments_by_url(url)
-
-        # 3. 插入评论
         insert_comments(conn, post_id, comments)
-        print(f"评论已写入 comments 表，共 {len(comments)} 条")
 
-        print("全部完成")
+        print(f"评论已写入 comments 表，共 {len(comments)} 条，post_id={post_id}")
 
     except Exception as e:
         print("程序执行失败：", str(e))

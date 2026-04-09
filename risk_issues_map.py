@@ -2,7 +2,8 @@ import json
 import re
 import time
 from typing import List, Dict, Any
-
+import argparse
+import os
 import pymysql
 from openai import OpenAI
 
@@ -21,7 +22,7 @@ DB_CONFIG = {
     "cursorclass": pymysql.cursors.DictCursor
 }
 
-DEEPSEEK_API_KEY = "sk-03214af033c741ad8dbc45e59976a27e"
+DEEPSEEK_API_KEY = os.getenv("sk-03214af033c741ad8dbc45e59976a27e", "").strip()
 DEEPSEEK_BASE_URL = "https://api.deepseek.com"   # 如果你当前项目不是这个地址，就改成你自己的
 DEEPSEEK_MODEL = "deepseek-chat"
 
@@ -42,6 +43,28 @@ MAX_CONTENT_LEN = 800
 # =========================
 # 基础工具
 # =========================
+
+def has_risks(conn):
+    with conn.cursor() as cursor:
+        cursor.execute("SELECT COUNT(*) AS cnt FROM risk_issues")
+        row = cursor.fetchone()
+        return (row["cnt"] or 0) > 0
+
+
+def get_post_by_id(conn, post_id: int):
+    with conn.cursor() as cursor:
+        cursor.execute("""
+            SELECT post_id, title, publish_time, content, theme1, theme2, theme3
+            FROM posts
+            WHERE post_id = %s
+        """, (post_id,))
+        return cursor.fetchone()
+
+
+def delete_post_risk_map(conn, post_id: int):
+    with conn.cursor() as cursor:
+        cursor.execute("DELETE FROM post_risk_map WHERE post_id = %s", (post_id,))
+    conn.commit()
 
 def get_connection():
     return pymysql.connect(**DB_CONFIG)
@@ -363,6 +386,10 @@ def insert_post_risk_map(conn, post_id: int, risk_ids: List[int]):
 # =========================
 
 def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--post-id", type=int, required=False)
+    args = parser.parse_args()
+
     conn = None
     try:
         conn = get_connection()
@@ -371,38 +398,43 @@ def main():
         print("1. 创建表...")
         create_tables(conn)
 
-        print("2. 清理旧数据...")
-        clear_old_data(conn)
+        # 如果 risk_issues 为空，初始化一次全局风险类别
+        if not has_risks(conn):
+            print("2. risk_issues 为空，开始初始化全局风险类别...")
+            posts = get_all_posts(conn)
+            if not posts:
+                print("posts 表中没有数据，程序结束。")
+                return
 
-        print("3. 读取帖子...")
-        posts = get_all_posts(conn)
-        if not posts:
-            print("posts 表中没有数据，程序结束。")
-            return
-
-        print(f"共读取到 {len(posts)} 条帖子")
-
-        # 第一轮：全局风险提炼
-        print("4. 开始提炼全局风险...")
-        all_posts_text = build_all_posts_summary(posts)
-        risks = extract_global_risks(client, all_posts_text)
-
-        print("\n===== 提炼得到的全局风险 =====")
-        for i, r in enumerate(risks, 1):
-            print(f"{i}. {r['risk_name']} - {r['risk_desc']}")
-
-        print("\n5. 写入 risk_issues...")
-        insert_risks(conn, risks)
+            all_posts_text = build_all_posts_summary(posts)
+            risks = extract_global_risks(client, all_posts_text)
+            insert_risks(conn, risks)
 
         risk_dict = get_risk_dict(conn)
         risk_names = list(risk_dict.keys())
 
-        print("\n当前标准风险类别：")
-        for name, rid in risk_dict.items():
-            print(f"{rid}: {name}")
+        # 单帖增量更新
+        if args.post_id:
+            post = get_post_by_id(conn, args.post_id)
+            if not post:
+                print(f"未找到 post_id={args.post_id}")
+                return
 
-        # 第二轮：逐帖归类
-        print("\n6. 开始逐帖风险归类...")
+            selected_risk_names = classify_post_risks(client, post, risk_names)
+            selected_risk_ids = [
+                risk_dict[name]
+                for name in selected_risk_names
+                if name in risk_dict
+            ]
+
+            delete_post_risk_map(conn, args.post_id)
+            insert_post_risk_map(conn, args.post_id, selected_risk_ids)
+
+            print(f"post_id={args.post_id} 风险更新完成：{selected_risk_names}")
+            return
+
+        # 如果没传 post_id，保留全量更新能力
+        posts = get_all_posts(conn)
         for idx, post in enumerate(posts, 1):
             post_id = post["post_id"]
             print(f"\n--- 正在处理帖子 {post_id} ({idx}/{len(posts)}) ---")
@@ -415,6 +447,7 @@ def main():
                     if name in risk_dict
                 ]
 
+                delete_post_risk_map(conn, post_id)
                 insert_post_risk_map(conn, post_id, selected_risk_ids)
 
                 print(f"帖子 {post_id} 归类成功：{selected_risk_names}")
