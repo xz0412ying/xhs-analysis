@@ -1,5 +1,6 @@
 import json
 import re
+import sys
 import time
 from typing import List, Dict, Any
 
@@ -171,6 +172,16 @@ def get_all_posts(conn) -> List[Dict[str, Any]]:
             ORDER BY post_id ASC
         """)
         return cursor.fetchall()
+
+
+def get_post_by_id(conn, post_id: int) -> Dict[str, Any]:
+    with conn.cursor() as cursor:
+        cursor.execute("""
+            SELECT post_id, title, publish_time, content, theme1, theme2, theme3
+            FROM posts
+            WHERE post_id = %s
+        """, (post_id,))
+        return cursor.fetchone()
 
 
 def build_all_posts_summary(posts: List[Dict[str, Any]]) -> str:
@@ -435,4 +446,41 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    # 支持命令行参数指定post_id
+    if len(sys.argv) >= 2:
+        post_id = int(sys.argv[1])
+        # 为单个帖子执行风险映射
+        conn = None
+        try:
+            conn = get_connection()
+            client = get_client()
+            
+            # 获取帖子信息
+            post = get_post_by_id(conn, post_id)
+            if not post:
+                print(f"posts 表中没有 post_id={post_id} 的帖子。")
+                return
+            
+            # 获取所有风险
+            risks = get_all_risks(conn)
+            risk_names = [r["risk_name"] for r in risks]
+            
+            # 进行风险分类
+            selected_risk_names = classify_post_risks(client, post, risk_names)
+            risk_dict = get_risk_dict(conn)
+            selected_risk_ids = [
+                risk_dict[name]
+                for name in selected_risk_names
+                if name in risk_dict
+            ]
+            
+            insert_post_risk_map(conn, post_id, selected_risk_ids)
+            print(f"帖子 {post_id} 归类成功：{selected_risk_names}")
+            
+        except Exception as e:
+            print(f"程序运行失败：{e}")
+        finally:
+            if conn:
+                conn.close()
+    else:
+        main()

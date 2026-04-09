@@ -1,6 +1,7 @@
 import json
 import os
 import re
+import sys
 from collections import Counter
 
 import jieba
@@ -78,6 +79,26 @@ def get_post_by_rank(conn, rank: int):
     """
     with conn.cursor() as cursor:
         cursor.execute(sql, (offset,))
+        row = cursor.fetchone()
+
+    if not row:
+        return None
+
+    return {
+        "post_id": row[0],
+        "title": row[1] or "",
+        "content": row[2] or "",
+    }
+
+
+def get_post_by_id(conn, post_id: int):
+    sql = """
+        SELECT post_id, title, content
+        FROM posts
+        WHERE post_id = %s
+    """
+    with conn.cursor() as cursor:
+        cursor.execute(sql, (post_id,))
         row = cursor.fetchone()
 
     if not row:
@@ -434,9 +455,18 @@ def main():
     try:
         conn = get_connection()
 
-        post = get_post_by_rank(conn, POST_RANK)
+        # 支持命令行参数或使用默认的POST_RANK
+        post_id = None
+        if len(sys.argv) >= 2:
+            post_id = int(sys.argv[1])
+        
+        if post_id:
+            post = get_post_by_id(conn, post_id)
+        else:
+            post = get_post_by_rank(conn, POST_RANK)
+        
         if not post:
-            print(f"posts 表中没有第 {POST_RANK} 条帖子（数据不足或 OFFSET 越界）。")
+            print(f"posts 表中没有找到帖子（post_id={post_id} 不存在或数据不足）。")
             return
 
         comments = get_post_comments(conn, post["post_id"], limit=800)

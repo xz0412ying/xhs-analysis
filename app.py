@@ -1,5 +1,7 @@
 from flask import Flask, render_template, jsonify
+from flask import request, redirect, url_for
 import pymysql
+from orchestrator import run_pipeline as run_pipeline_orchestrator
 
 app = Flask(__name__)
 
@@ -13,6 +15,21 @@ DB_CONFIG = {
     "cursorclass": pymysql.cursors.DictCursor
 }
 
+def run_pipeline(url, title, publish_time, content):
+    run_pipeline_orchestrator(url, title, publish_time, content)
+
+def create_post(title, publish_time, content):
+    conn = get_connection()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute("""
+                INSERT INTO posts (title, publish_time, content)
+                VALUES (%s, %s, %s)
+            """, (title, publish_time, content))
+            conn.commit()
+            return cursor.lastrowid
+    finally:
+        conn.close()
 
 def get_connection():
     try:
@@ -805,6 +822,25 @@ def get_post_comments(post_id, limit=15):
 # =========================
 # Routes
 # =========================
+
+@app.route("/new_post_analysis")
+def new_post_analysis():
+    return render_template("new_post_analysis.html")
+
+
+@app.route("/submit_post_analysis", methods=["POST"])
+def submit_post_analysis():
+    url = request.form["url"]
+    title = request.form["title"]
+    publish_time = request.form["publish_time"]
+    content = request.form["content"]
+
+    post_id = create_post(title, publish_time, content)
+
+    # 🚨 核心：执行整个流程
+    run_pipeline(url, title, publish_time, content)
+
+    return redirect(url_for("post_detail", post_id=post_id))
 
 @app.route("/")
 @app.route("/dashboard")

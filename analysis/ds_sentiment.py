@@ -1,5 +1,6 @@
 import json
 import re
+import sys
 import pymysql
 from openai import OpenAI
 
@@ -9,7 +10,7 @@ from openai import OpenAI
 DB_CONFIG = {
     "host": "localhost",
     "user": "root",
-    "password": "123456",   # 改成你的 MySQL 密码
+    "password": "123456",
     "database": "xiaohongshu_analysis",
     "charset": "utf8mb4"
 }
@@ -26,7 +27,7 @@ DEEPSEEK_MODEL_NAME = "deepseek-chat"
 # =========================
 POST_RANK_START = 2
 POST_RANK_END = 31
-REANALYZE_ALL_COMMENTS = True   # True=全部重跑；False=只跑 attitude_type 为空的评论
+REANALYZE_ALL_COMMENTS = True
 
 
 def create_db_connection():
@@ -65,6 +66,17 @@ def fetch_post_by_rank(conn, post_rank: int):
         return cursor.fetchone()
 
 
+def fetch_post_by_id(conn, post_id: int):
+    with conn.cursor() as cursor:
+        sql = """
+            SELECT post_id, title, content, publish_time, theme1, theme2, theme3
+            FROM posts
+            WHERE post_id = %s
+        """
+        cursor.execute(sql, (post_id,))
+        return cursor.fetchone()
+
+
 def fetch_comments_for_post(conn, post_id: int, reanalyze_all: bool = True):
     with conn.cursor() as cursor:
         if reanalyze_all:
@@ -88,7 +100,7 @@ def fetch_comments_for_post(conn, post_id: int, reanalyze_all: bool = True):
 
 def build_deepseek_sentiment_prompt(comment_theme: str, comment_text: str) -> str:
     return f"""
-你是一名中文社交媒体评论分析助手。请基于“评论已分配的主题”和“评论内容本身”进行分析。
+你是一名中文社交媒体评论分析助手。请基于"评论已分配的主题"和"评论内容本身"进行分析。
 
 【评论主题】
 {comment_theme}
@@ -126,15 +138,15 @@ def build_deepseek_sentiment_prompt(comment_theme: str, comment_text: str) -> st
 - 无明显态度
 
 5. 重要说明：
-- attitude_type 必须针对“评论自己的主题”来判断，不要根据帖子总主题判断
+- attitude_type 必须针对"评论自己的主题"来判断，不要根据帖子总主题判断
 - sentiment_label 判断评论整体情绪倾向
 - sentiment_score 判断评论整体情绪强弱
-- 如果评论是在认同该主题下的某个判断、事实或批评，优先标为“支持”或“认可”
-- 如果评论是在否定该主题下的某个判断，标为“反对”或“质疑”
-- 如果评论主要表达风险顾虑，标为“担忧”或“警惕”
-- 如果评论主要表示不确定、提问、没看懂，标为“疑惑”
-- 如果评论主要是讽刺、玩梗、阴阳怪气，标为“调侃”
-- 如果评论没有明确态度，标为“无明显态度”
+- 如果评论是在认同该主题下的某个判断、事实或批评，优先标为"支持"或"认可"
+- 如果评论是在否定该主题下的某个判断，标为"反对"或"质疑"
+- 如果评论主要表达风险顾虑，标为"担忧"或"警惕"
+- 如果评论主要表示不确定、提问、没看懂，标为"疑惑"
+- 如果评论主要是讽刺、玩梗、阴阳怪气，标为"调侃"
+- 如果评论没有明确态度，标为"无明显态度"
 
 6. 只输出 JSON，不要输出解释、前后缀、代码块。
 
@@ -249,6 +261,98 @@ def save_comment_sentiment_result(conn, comment_id: int, sentiment_label: str, s
         cursor.execute(sql, (sentiment_label, sentiment_score, attitude_type, comment_id))
 
 
+def run_deepseek_sentiment_analysis_for_single_post(post_id):
+    """为单个帖子执行情感分析"""
+    conn = None
+    try:
+        conn = create_db_connection()
+        client = create_deepseek_client()
+
+        print(f"\n{'=' * 60}")
+        print(f"开始分析帖子 post_id={post_id}")
+        print(f"{'=' * 60}")
+
+        post = fetch_post_by_id(conn, post_id)
+        if not post:
+            print(f"posts 表中没有 post_id={post_id} 的帖子。")
+            return
+
+        title = post.get("title", "")
+        publish_time = post.get("publish_time", "")
+
+        print(f"post_id: {post_id}")
+        print(f"title: {title}")
+        print(f"publish_time: {publish_time}")
+
+        comments = fetch_comments_for_post(
+            conn=conn,
+            post_id=post_id,
+            reanalyze_all=REANALYZE_ALL_COMMENTS
+        )
+
+        if not comments:
+            print("该帖子没有待分析评论，跳过。")
+            return
+
+        print(f"\n共找到 {len(comments)} 条评论，开始分析...\n")
+
+        positive_count = 0
+        neutral_count = 0
+        negative_count = 0
+
+        for index, row in enumerate(comments, start=1):
+            comment_id = row["comment_id"]
+            comment_content = row.get("comment_content", "")
+            comment_theme = row.get("assigned_theme", "")
+
+            try:
+                sentiment_label, sentiment_score, attitude_type = analyze_comment_with_deepseek(
+                    client=client,
+                    comment_theme=comment_theme,
+                    comment_text=comment_content
+                )
+
+                save_comment_sentiment_result(
+                    conn=conn,
+                    comment_id=comment_id,
+                    sentiment_label=sentiment_label,
+                    sentiment_score=sentiment_score,
+                    attitude_type=attitude_type
+                )
+
+                conn.commit()
+
+                if sentiment_label == "积极":
+                    positive_count += 1
+                elif sentiment_label == "消极":
+                    negative_count += 1
+                else:
+                    neutral_count += 1
+
+                print(
+                    f"[post_id={post_id} {index}/{len(comments)}] "
+                    f"comment_id={comment_id} | "
+                    f"theme={comment_theme} | "
+                    f"label={sentiment_label} | "
+                    f"score={sentiment_score} | "
+                    f"attitude={attitude_type} | "
+                    f"content={comment_content[:40]}"
+                )
+
+            except Exception as e:
+                conn.rollback()
+                print(f"[评论分析失败] post_id={post_id} comment_id={comment_id} | error={e}")
+
+        print(f"\n帖子 post_id={post_id} 分析完成")
+        print(f"积极: {positive_count} | 中性: {neutral_count} | 消极: {negative_count}")
+
+    except Exception as e:
+        print(f"程序运行出错: {e}")
+    finally:
+        if conn:
+            conn.close()
+
+
 def run_deepseek_sentiment_analysis_for_post_range():
     conn = None
     try:
@@ -347,4 +451,9 @@ def run_deepseek_sentiment_analysis_for_post_range():
 
 
 if __name__ == "__main__":
-    run_deepseek_sentiment_analysis_for_post_range()
+    # 支持命令行参数指定post_id
+    if len(sys.argv) >= 2:
+        post_id = int(sys.argv[1])
+        run_deepseek_sentiment_analysis_for_single_post(post_id)
+    else:
+        run_deepseek_sentiment_analysis_for_post_range()

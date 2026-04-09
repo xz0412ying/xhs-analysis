@@ -290,10 +290,19 @@ def main():
 
     try:
         print("=== 小红书帖子评论采集程序 ===")
-        url = input("请输入帖子URL：").strip()
-        title = input("请输入帖子标题：").strip()
-        publish_time = input("请输入发布时间：").strip()
-        content = input("请输入帖子内容：").strip()
+        
+        # 支持命令行参数或交互输入
+        import sys
+        if len(sys.argv) >= 5:
+            url = sys.argv[1].strip()
+            title = sys.argv[2].strip()
+            publish_time = sys.argv[3].strip()
+            content = sys.argv[4].strip()
+        else:
+            url = input("请输入帖子URL：").strip()
+            title = input("请输入帖子标题：").strip()
+            publish_time = input("请输入发布时间：").strip()
+            content = input("请输入帖子内容：").strip()
 
         # 连接数据库
         conn = get_connection()
@@ -302,6 +311,9 @@ def main():
         # 1. 插入帖子
         post_id = insert_post(conn, title, publish_time, content)
         print(f"帖子已写入 posts 表，post_id = {post_id}")
+        
+        # 输出post_id供orchestrator获取
+        print(f"POST_ID:{post_id}")
 
         # 2. 根据 URL 爬取评论
         comments = crawl_comments_by_url(url)

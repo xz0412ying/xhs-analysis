@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-title">新建分析任务</div>
+
+<div class="card">
+    <form method="post" action="{{ url_for('submit_post_analysis') }}">
+
+        <div class="form-item">
+            <label>小红书URL</label>
+            <input type="text" name="url" required>
+        </div>
+
+        <div class="form-item">
+            <label>标题</label>
+            <input type="text" name="title" required>
+        </div>
+
+        <div class="form-item">
+            <label>发布时间</label>
+            <input type="text" name="publish_time">
+        </div>
+
+        <div class="form-item">
+            <label>正文</label>
+            <textarea name="content" rows="6"></textarea>
+        </div>
+
+        <button type="submit" class="primary-btn">开始分析</button>
+
+    </form>
+</div>
+{% endblock %}
