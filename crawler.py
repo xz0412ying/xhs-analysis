@@ -10,7 +10,7 @@ from DrissionPage import ChromiumPage
 DB_CONFIG = {
     "host": "localhost",
     "user": "root",
-    "password": "123456",
+    "password": "123456",  # 替换为你的 MySQL 密码
     "database": "xiaohongshu_analysis",
     "charset": "utf8mb4"
 }
@@ -96,6 +96,20 @@ def get_like_count_from_element(comment_ele):
 
     except Exception:
         return 0
+
+
+def is_image_comment(comment_ele):
+    """
+    检查评论是否包含图片。
+    如果评论里有 <img> 标签，说明是图片评论。
+    """
+    try:
+        img_elements = comment_ele.eles('img')
+        if img_elements:
+            return True
+    except Exception:
+        pass
+    return False
 
 
 def crawl_comments_by_url(url, max_scrolls=10):
@@ -189,6 +203,11 @@ def crawl_comments_by_url(url, max_scrolls=10):
 
         for i, ele in enumerate(comment_elements, start=1):
             try:
+                # 如果是图片评论，跳过
+                if is_image_comment(ele):
+                    print(f"第{i}条是图片评论，跳过")
+                    continue
+
                 full_text = safe_text(ele)
                 if not full_text:
                     continue
@@ -271,11 +290,7 @@ def insert_comments(conn, post_id, comments):
 
     values = []
     for c in comments:
-        values.append((
-            post_id,
-            c["comment_content"],
-            c["like_count"]
-        ))
+        values.append((post_id, c["comment_content"], c["like_count"]))
 
     with conn.cursor() as cursor:
         cursor.executemany(sql, values)
@@ -285,40 +300,44 @@ def insert_comments(conn, post_id, comments):
 # =========================
 # 5. 主程序
 # =========================
-# def main():
-#     conn = None
+def main():
+    conn = None
 
-#     try:
-#         print("=== 小红书帖子评论采集程序 ===")
-#         url = input("请输入帖子URL：").strip()
-#         title = input("请输入帖子标题：").strip()
-#         publish_time = input("请输入发布时间：").strip()
-#         content = input("请输入帖子内容：").strip()
+    try:
+        print("=== 小红书帖子评论采集程序 ===")
+        url = input("请输入帖子URL：").strip()
+        title = input("请输入帖子标题：").strip()
+        publish_time = input("请输入发布时间：").strip()
+        content = input("请输入帖子内容：").strip()
 
-#         # 连接数据库
-#         conn = get_connection()
-#         print("数据库连接成功")
+        # 连接数据库
+        conn = get_connection()
+        print("数据库连接成功")
 
-#         # 1. 插入帖子
-#         post_id = insert_post(conn, title, publish_time, content)
-#         print(f"帖子已写入 posts 表，post_id = {post_id}")
+        # 1. 插入帖子
+        post_id = insert_post(conn, title, publish_time, content)
+        print(f"帖子已写入 posts 表，post_id = {post_id}")
 
-#         # 2. 根据 URL 爬取评论
-#         comments = crawl_comments_by_url(url)
+        # 2. 根据 URL 爬取评论
+        comments = crawl_comments_by_url(url)
 
-#         # 3. 插入评论
-#         insert_comments(conn, post_id, comments)
-#         print(f"评论已写入 comments 表，共 {len(comments)} 条")
+        # 3. 插入评论
+        insert_comments(conn, post_id, comments)
+        print(f"评论已写入 comments 表，共 {len(comments)} 条")
 
-#         print("全部完成")
+        print("全部完成")
 
-#     except Exception as e:
-#         print("程序执行失败：", str(e))
+    except Exception as e:
+        print("程序执行失败：", str(e))
 
-#     finally:
-#         if conn:
-#             try:
-#                 conn.close()
-#                 print("数据库连接已关闭")
-#             except Exception:
-#                 pass
+    finally:
+        if conn:
+            try:
+                conn.close()
+                print("数据库连接已关闭")
+            except Exception:
+                pass
+
+
+if __name__ == "__main__":
+    main()

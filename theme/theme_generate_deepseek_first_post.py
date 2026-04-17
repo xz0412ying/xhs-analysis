@@ -25,13 +25,16 @@ API_KEY = os.getenv("DEEPSEEK_API_KEY", "").strip()
 BASE_URL = os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com/v1").strip()
 
 # 只分析 posts 表里按 post_id 排序后的第几条帖子
-POST_RANK = 3
+POST_RANK = 40
 
 # 送入大模型生成主题时，最多采样多少条评论
-COMMENT_SAMPLE_SIZE = 90
+COMMENT_SAMPLE_SIZE = 60
 
 # 评论主题分配时使用的句向量模型
 EMBEDDING_MODEL_NAME = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
+
+# 无效延伸主题统一占位
+NO_EXTENSION_THEME = "评论区无其他延伸主题"
 
 STOP_WORDS = {
     "的", "了", "是", "我", "你", "他", "她", "它", "这", "那", "也", "都", "就", "很",
@@ -66,6 +69,64 @@ def clean_text(text: str) -> str:
     text = (text or "").strip()
     text = re.sub(r"\s+", " ", text)
     return text
+
+
+def normalize_extension_theme(theme: str) -> str:
+    """
+    将大模型输出的“无其他延伸主题”类表达统一归一化。
+    """
+    theme = clean_text(theme)
+
+    if not theme:
+        return NO_EXTENSION_THEME
+
+    invalid_exact = {
+        "",
+        "NULL",
+        "null",
+        "无",
+        "暂无",
+        "没有",
+        "其他",
+        "其它",
+        "评论区无其他延伸主题",
+        "无其他延伸主题",
+        "没有其他延展主题",
+        "评论区没有其他延展主题",
+        "暂无其他延展主题",
+        "评论区无其他延展主题",
+        "没有其他主题",
+        "无其他主题",
+        "暂无其他主题",
+    }
+    if theme in invalid_exact:
+        return NO_EXTENSION_THEME
+
+    invalid_keywords = [
+        "无其他延伸",
+        "没有其他延伸",
+        "暂无延伸",
+        "无明显延伸",
+        "没有更多主题",
+        "没有其他主题",
+        "无其他主题",
+        "暂无其他主题",
+        "没有其他延展主题",
+        "无其他延展主题",
+    ]
+    if any(k in theme for k in invalid_keywords):
+        return NO_EXTENSION_THEME
+
+    return theme
+
+
+def is_valid_extension_theme(theme: str) -> bool:
+    theme = clean_text(theme)
+    if not theme:
+        return False
+    if normalize_extension_theme(theme) == NO_EXTENSION_THEME:
+        return False
+    return True
 
 
 def get_post_by_rank(conn, rank: int):
@@ -208,8 +269,9 @@ def build_prompt(post, comments):
 约束：
 1. 主题名简洁明确，建议6-16字；
 2. theme2 和 theme3 必须来自评论，而不是重复主帖；
-3. 如果评论区只有一个明显延伸方向，theme3 可以写成“评论区无其他延伸主题”；
-4. 只输出合法JSON，不要输出任何额外文字。
+3. 如果评论区只有一个明显延伸方向，theme3 写成“评论区无其他延伸主题”；
+4. 严禁输出解释性句子，如“没有其他延展主题”“暂无更多主题”等；
+5. 只输出合法JSON，不要输出任何额外文字。
 
 输出格式：
 {
@@ -265,14 +327,20 @@ def call_llm_generate_themes(post, comments):
     data = json.loads(content)
 
     theme1 = clean_text(data.get("theme1", ""))
-    theme2 = clean_text(data.get("theme2", ""))
-    theme3 = clean_text(data.get("theme3", ""))
+    theme2 = normalize_extension_theme(data.get("theme2", ""))
+    theme3 = normalize_extension_theme(data.get("theme3", ""))
 
-    if not (theme1 and theme2 and theme3):
-        raise RuntimeError(f"模型返回缺失字段: {data}")
+    if not theme1:
+        raise RuntimeError(f"模型返回缺失 theme1: {data}")
 
-    if theme2 == theme3:
-        theme3 = "评论区无其他延伸主题"
+    if not theme2:
+        theme2 = NO_EXTENSION_THEME
+    if not theme3:
+        theme3 = NO_EXTENSION_THEME
+
+    # 如果 theme2 和 theme3 一样，保留 theme2，theme3 视为无其他延伸主题
+    if theme2 == theme3 and is_valid_extension_theme(theme2):
+        theme3 = NO_EXTENSION_THEME
 
     return theme1, theme2, theme3
 
@@ -287,14 +355,12 @@ def build_comment_text_for_embedding(post, comment_text: str) -> str:
 def assign_comment_themes(post, comments, theme1, theme2, theme3, debug=False):
     model = SentenceTransformer(EMBEDDING_MODEL_NAME)
 
-    extension_theme_texts = [
-        f"评论区主要延伸争议点：{theme2}",
-        f"评论区第二延伸争议点：{theme3}",
-    ]
-    extension_theme_embeddings = model.encode(
-        extension_theme_texts,
-        normalize_embeddings=True
-    )
+    # 只保留有效的评论区延伸主题
+    extension_themes = []
+    if is_valid_extension_theme(theme2):
+        extension_themes.append(theme2)
+    if is_valid_extension_theme(theme3) and theme3 != theme2:
+        extension_themes.append(theme3)
 
     updates = []
     theme_count = Counter()
@@ -309,50 +375,106 @@ def assign_comment_themes(post, comments, theme1, theme2, theme3, debug=False):
         else:
             non_expressive_comments.append(comment)
 
+    # 表态型/极短评论，归为主帖主题
     for comment in expressive_comments:
         assigned_theme = theme1
         updates.append((assigned_theme, comment["comment_id"], post["post_id"]))
         theme_count[assigned_theme] += 1
 
-    if non_expressive_comments:
-        enhanced_comments = [
-            build_comment_text_for_embedding(post, c["comment_content"])
-            for c in non_expressive_comments
-        ]
+    # 没有有效延伸主题：全部回退 theme1
+    if not extension_themes:
+        for comment in non_expressive_comments:
+            assigned_theme = theme1
+            updates.append((assigned_theme, comment["comment_id"], post["post_id"]))
+            theme_count[assigned_theme] += 1
+        return updates, theme_count
 
-        comment_embeddings = model.encode(
-            enhanced_comments,
+    enhanced_comments = [
+        build_comment_text_for_embedding(post, c["comment_content"])
+        for c in non_expressive_comments
+    ]
+    if not enhanced_comments:
+        return updates, theme_count
+
+    comment_embeddings = model.encode(
+        enhanced_comments,
+        normalize_embeddings=True
+    )
+
+    # 只有 1 个有效延伸主题
+    if len(extension_themes) == 1:
+        extension_theme_texts = [
+            f"评论区延伸争议点：{extension_themes[0]}"
+        ]
+        extension_theme_embeddings = model.encode(
+            extension_theme_texts,
             normalize_embeddings=True
         )
 
         sims_matrix = cosine_similarity(comment_embeddings, extension_theme_embeddings)
 
-        low_similarity_threshold = 0.20
-        margin_threshold = 0.01
-        extension_themes = [theme2, theme3]
+        # 单主题时阈值略高一点，避免误分
+        low_similarity_threshold = 0.22
 
         for idx, comment in enumerate(non_expressive_comments):
-            sims = sims_matrix[idx]
-            best_idx = int(sims.argmax())
-            best_score = float(sims[best_idx])
-            second_score = float(sims[1 - best_idx])
-            score_gap = best_score - second_score
+            best_score = float(sims_matrix[idx][0])
 
-            if best_score < low_similarity_threshold or score_gap < margin_threshold:
+            if best_score < low_similarity_threshold:
                 assigned_theme = theme1
             else:
-                assigned_theme = extension_themes[best_idx]
+                assigned_theme = extension_themes[0]
 
             updates.append((assigned_theme, comment["comment_id"], post["post_id"]))
             theme_count[assigned_theme] += 1
 
             if debug and idx < 20:
                 print("评论：", comment["comment_content"])
-                print("theme2_score:", round(float(sims[0]), 4), "->", theme2)
-                print("theme3_score:", round(float(sims[1]), 4), "->", theme3)
-                print("best_score:", round(best_score, 4), "gap:", round(score_gap, 4))
+                print("extension_score:", round(best_score, 4), "->", extension_themes[0])
                 print("assigned:", assigned_theme)
                 print("-" * 60)
+
+        return updates, theme_count
+
+    # 有 2 个有效延伸主题
+    extension_theme_texts = [
+        f"评论区主要延伸争议点：{extension_themes[0]}",
+        f"评论区第二延伸争议点：{extension_themes[1]}",
+    ]
+    extension_theme_embeddings = model.encode(
+        extension_theme_texts,
+        normalize_embeddings=True
+    )
+
+    sims_matrix = cosine_similarity(comment_embeddings, extension_theme_embeddings)
+
+    low_similarity_threshold = 0.20
+    margin_threshold = 0.01
+
+    for idx, comment in enumerate(non_expressive_comments):
+        sims = sims_matrix[idx]
+        best_idx = int(sims.argmax())
+        best_score = float(sims[best_idx])
+
+        # 取另一个分数
+        second_idx = 1 - best_idx
+        second_score = float(sims[second_idx])
+        score_gap = best_score - second_score
+
+        if best_score < low_similarity_threshold or score_gap < margin_threshold:
+            assigned_theme = theme1
+        else:
+            assigned_theme = extension_themes[best_idx]
+
+        updates.append((assigned_theme, comment["comment_id"], post["post_id"]))
+        theme_count[assigned_theme] += 1
+
+        if debug and idx < 20:
+            print("评论：", comment["comment_content"])
+            print("themeA_score:", round(float(sims[0]), 4), "->", extension_themes[0])
+            print("themeB_score:", round(float(sims[1]), 4), "->", extension_themes[1])
+            print("best_score:", round(best_score, 4), "gap:", round(score_gap, 4))
+            print("assigned:", assigned_theme)
+            print("-" * 60)
 
     return updates, theme_count
 
@@ -424,6 +546,9 @@ def main():
         print("theme1:", theme1)
         print("theme2:", theme2)
         print("theme3:", theme3)
+
+        valid_extensions = [t for t in [theme2, theme3] if is_valid_extension_theme(t)]
+        print("有效延伸主题：", valid_extensions if valid_extensions else "无")
 
         print("开始为评论分配主题...")
         updates, theme_count = assign_comment_themes(
