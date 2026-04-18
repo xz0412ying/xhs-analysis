@@ -24,7 +24,7 @@ DEEPSEEK_MODEL_NAME = "deepseek-chat"
 # =========================
 # 任务配置
 # =========================
-POST_RANK = 38
+POST_RANK = 40
 REANALYZE_ALL_COMMENTS = True   # True=全部重跑；False=只跑 attitude_type 为空的评论
 
 

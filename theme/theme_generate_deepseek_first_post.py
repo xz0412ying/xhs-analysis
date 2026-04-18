@@ -25,7 +25,7 @@ API_KEY = os.getenv("DEEPSEEK_API_KEY", "").strip()
 BASE_URL = os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com/v1").strip()
 
 # 只分析 posts 表里按 post_id 排序后的第几条帖子
-POST_RANK = 40
+POST_RANK = 41
 
 # 送入大模型生成主题时，最多采样多少条评论
 COMMENT_SAMPLE_SIZE = 60

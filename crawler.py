@@ -114,7 +114,6 @@ def crawl_comments_by_url(url, max_scrolls=10):
         page = ChromiumPage()
         print(f"打开页面: {url}")
         page.get(url)
-        time.sleep(5)
 
         # 尝试关闭弹窗
         close_selectors = ['.close', '.cancel', '.close-btn', '.modal-close']
@@ -124,7 +123,6 @@ def crawl_comments_by_url(url, max_scrolls=10):
                 for btn in btns:
                     try:
                         btn.click()
-                        time.sleep(1)
                         break
                     except Exception:
                         pass
@@ -143,7 +141,6 @@ def crawl_comments_by_url(url, max_scrolls=10):
                 for btn in more_btns:
                     try:
                         btn.click()
-                        time.sleep(1)
                     except Exception:
                         pass
             except Exception:
@@ -151,7 +148,6 @@ def crawl_comments_by_url(url, max_scrolls=10):
 
             try:
                 page.scroll.to_bottom()
-                time.sleep(5)
                 new_height = page.run_js("return document.body.scrollHeight")
             except Exception:
                 new_height = last_height
@@ -199,10 +195,13 @@ def crawl_comments_by_url(url, max_scrolls=10):
 
                 like_count = get_like_count_from_element(ele)
 
-                # 去重
-                if comment_content in seen:
-                    continue
-                seen.add(comment_content)
+                # 跳过以@开头且内容少于10字的评论
+                if comment_content.strip().startswith("@"):
+                    # 获取@后面的内容长度
+                    content_after_at = comment_content.strip()[1:].strip()
+                    if len(content_after_at) < 12:
+                        print(f"第{i}条 -> 跳过短@回复：{comment_content[:30]}...")
+                        continue
 
                 comments.append({
                     "comment_content": comment_content,
@@ -285,6 +284,26 @@ def insert_comments(conn, post_id, comments):
 # =========================
 # 5. 主程序
 # =========================
+
+def input_multiline(prompt, end_marker="---"):
+    """
+    多行输入函数
+    输入完成后，输入 end_marker（默认---）单独一行结束输入
+    """
+    print(prompt)
+    print(f"(输入完成后，输入 '{end_marker}' 单独一行结束)")
+    lines = []
+    while True:
+        try:
+            line = input()
+            if line.strip() == end_marker:
+                break
+            lines.append(line)
+        except EOFError:
+            break
+    return "\n".join(lines)
+
+
 def main():
     conn = None
 
@@ -293,7 +312,10 @@ def main():
         url = input("请输入帖子URL：").strip()
         title = input("请输入帖子标题：").strip()
         publish_time = input("请输入发布时间：").strip()
-        content = input("请输入帖子内容：").strip()
+        content = input_multiline("请输入帖子内容：")
+        
+        print(f"\n帖子内容预览（前200字）：\n{content[:200]}...")
+        print()
 
         # 连接数据库
         conn = get_connection()
