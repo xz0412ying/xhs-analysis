@@ -1,0 +1,37 @@
+{
+  "Version": 1,
+  "WorkspaceRootPath": "E:\\myproject\\xhs-analysis\\",
+  "Documents": [
+    {
+      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|E:\\myproject\\xhs-analysis\\crawler.py||{3B902123-F8A7-4915-9F01-361F908088D0}",
+      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:crawler.py||{3B902123-F8A7-4915-9F01-361F908088D0}"
+    }
+  ],
+  "DocumentGroupContainers": [
+    {
+      "Orientation": 0,
+      "VerticalTabListWidth": 256,
+      "DocumentGroups": [
+        {
+          "DockedWidth": 200,
+          "SelectedChildIndex": 0,
+          "Children": [
+            {
+              "$type": "Document",
+              "DocumentIndex": 0,
+              "Title": "crawler.py",
+              "DocumentMoniker": "E:\\myproject\\xhs-analysis\\crawler.py",
+              "RelativeDocumentMoniker": "crawler.py",
+              "ToolTip": "E:\\myproject\\xhs-analysis\\crawler.py",
+              "RelativeToolTip": "crawler.py",
+              "ViewState": "AgIAAAAAAAAAAAAAAADwvwUAAAAAAAAAAAAAAA==",
+              "Icon": "00000000-0000-0000-0000-000000000000.000000|iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAATzSURBVEhLlZVriFVVFMd/e59z7p0Z722ah6OhaKPjIwkjLBCKJCtBEyut9Ev6Qc3ExEemkSiCkCURkpGKpFL2oSENP4wxYYZlkZBZ6thDGc10ZnzdueNc7\u002BucvVcf7sN7Z6ToD4vN2nud/9rrf9beW/EfGNmxbXvSutPETzla7OSOEcv/KF3f1D3n3vZ0xbs779nzfOk8ACKi\u002Bs4BzI1tGJYJVEu8smrcyZs12pcsbhDgmsC4vr/ywtg17wNsis\u002BZXYnavvN6XbSt6QO3Lw9AWYLVl1bMG1Tlf6AHeJHjyToOJQfiK4tjDK4f4AYBjrGEtD38Yn1bvNb1Z7anwuyLV/NkXWrMxwN3/lnKB6AB1nQsX7n72sKbEyp79/hGRY5dGcDBVB1ZZVEiaGvRYnGspdZLMqP\u002Bj8nVjj\u002BzAuGnZCUNjqE6kCf6klOoYN3lZWdrnWxT3HrsWvIRCFgfbFawvuTHPn6WkrXbvphy2TWAp2w0LQ5p0QDYIP9xIIgvSMH3874PUlwr8Y2UckMhgUVF0qJJWwcJQHyho/UWXYeTnNh/jo3LNhPSYSSA\u002B0c9wNZN27nR3svpY78zf\u002B7L2CC3GQBauof3S6AUobRo0qKLOwdYu\u002BV1PvliNwtmL\u002Ba5p15g6OBhtDZ/Q0P9IJ6dM4OWL1sQm6uugNCwynPe0Z7lBV9tkA2udMb8uPHoDMJ8t3ALNit0HUnyzKIpdHVd4eCer/lw91ZSyRRrlr7J8PuGkuxNFbUXuZ0gfC4LYQebCE76gT9Fh7viQwu7vxRUlFVwYMdXHDvwKz03e9i\u002Bexvx7jiJWwmSiVT\u002BP5WTA\u002BAocBW6LjTeTbJLp5UZnLYOKXG4YUI5Pf1c7Btvv8bE6Q8yftJ9dMe6ad7XTHX13Wxc/xajR45h/br1zJo1q4y/uXYjDSZGcCKO6kiu1WnjDkqL5rrxaHAyxY4AONV2kra2tnznCL3xBEuWLmbRgkWcOX2GVatWUV9fX5Zgcug483oOoFLmkP9cwy\u002B6x3hNKXFIi8PjVbF8BUL12DDffn\u002Bk2CHWBxsIe/d\u002BSk1NDY2NjUSjUXbs2FGWIAtMHfgz4uotADqNGpoQzUgvxTUTyumab9Vij5f0faFjLly4UEZcQBbN2MglMdNrWwB0xjrDY0GI68aj04SRfAU5u33gcmNfuv6wgKONyvROHQegM6IH91qXjiBMZxAuEuWsVB4Q2/\u002Bk9oXNm3j6VQCdMPqumPG4GoS4GoT6yPPv18CdYIFcpEwG0JdNZXVZQF6e1NWATNzgJw3Gt4gI58\u002BfLw29IwwKK2BQIwF0WnQDAKIQ4\u002BRlAS/q4IQ1SqmiNTY29uXrBytFmVzfnzpJY9Qhm/GMyYSxmYrymzJ/4P4PcuQqJ1Wg5iuAEac3PWys\u002ByE4D2E1Yh3EuHw2rpUqJVQhRJSlUgkahYdFRKEUeAgxcfjNuERULi6qhAFKqBC5WPY4NJ565yVBbwY9WKxmxcCzTI9cY0gohUUIBLIoMqJIobglml5RfOFXkTCaJtenQVsiWCqUMESbWL9Hf8zR1dFMbd1aRC8XUeHM303UKmT9\u002BNYfnq75qyZAjU6JdgsJEij2Z6oYrg3DHJ9KJaJF2kPWW/JYdXNrvwQFjDizcZQQei95cdQEN5KdefnROT8W1nrS06dlLa/EUY\u002B021DtdaulQZnOKCybGN3/eSnPP/DyE3GLsB3nAAAAAElFTkSuQmCC",
+              "WhenOpened": "2026-04-18T05:11:23.676Z",
+              "EditorCaption": ""
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
