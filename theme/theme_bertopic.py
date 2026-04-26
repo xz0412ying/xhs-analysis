@@ -48,10 +48,10 @@ MTS_FACTORS = [0.20, 0.25, 0.30, 0.35, 0.40, 0.50, 0.60, 0.70, 0.80]
 MIN_MTS_FLOOR = 5
 
 # 综合评分权重
-W_COHERENCE = 0.40
-W_DIVERSITY = 0.15
-W_COUNT = 0.15
-W_OUTLIER = 0.30
+W_COHERENCE = 0.10
+W_DIVERSITY = 0.25
+W_COUNT = 0.25
+W_OUTLIER = 0.40
 
 
 # =========================

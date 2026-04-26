@@ -13,29 +13,7 @@
     <div class="post-content">{{ post.content or "暂无正文内容" }}</div>
 </div>
 
-<div class="card-grid two">
-    <div class="card">
-        <div class="card-title">主题分析</div>
-        <div class="chart-note">用于展示该帖子从原始内容中提炼出的核心主题结构。</div>
-        <div class="tag-list">
-            <span class="tag">theme1：{{ post.theme1 or "暂无" }}</span>
-            <span class="tag">theme2：{{ post.theme2 or "暂无" }}</span>
-            <span class="tag">theme3：{{ post.theme3 or "暂无" }}</span>
-        </div>
-    </div>
 
-    <div class="card">
-        <div class="card-title">风险归类</div>
-        <div class="chart-note">用于展示该帖子被归入的核心风险类别。</div>
-        <div class="tag-list">
-            {% for risk in post_risks %}
-                <a class="tag risk-tag" href="{{ url_for('risk_detail', risk_id=risk.risk_id) }}">
-                    {{ risk.risk_name }}
-                </a>
-            {% endfor %}
-        </div>
-    </div>
-</div>
 
 <div class="card-grid two">
     <div class="card">

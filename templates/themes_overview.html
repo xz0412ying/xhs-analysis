@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-title">总主题分析</div>
+
+<div class="card-grid two">
+    <div class="card stat-card">
+        <div class="stat-label">主题总数</div>
+        <div class="stat-value">{{ themes|length }}</div>
+    </div>
+    <div class="card stat-card">
+        <div class="stat-label">帖子总数</div>
+        <div class="stat-value">{{ stats.post_count }}</div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-title">主题列表</div>
+    <div class="chart-note">所有识别到的主题，按名称排序</div>
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>主题名称</th>
+                <th>操作</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for theme in themes %}
+            <tr>
+                <td>{{ theme }}</td>
+                <td>
+                    <a class="link-btn" href="{{ url_for('theme_detail', theme=theme) }}">查看详情</a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<script>
+// 这里可以添加主题相关的图表
+</script>
+{% endblock %}

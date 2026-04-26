@@ -90,6 +90,10 @@ body {
     margin-bottom: 20px;
 }
 
+.card-grid.six {
+    grid-template-columns: repeat(6, 1fr);
+}
+
 .card-grid.five {
     grid-template-columns: repeat(5, 1fr);
 }
@@ -241,12 +245,14 @@ body {
 }
 
 @media (max-width: 1500px) {
+    .card-grid.six,
     .card-grid.five {
         grid-template-columns: repeat(3, 1fr);
     }
 }
 
 @media (max-width: 1200px) {
+    .card-grid.six,
     .card-grid.five,
     .card-grid.four,
     .card-grid.three,

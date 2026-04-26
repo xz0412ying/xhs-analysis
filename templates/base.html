@@ -17,18 +17,31 @@
                 <div class="nav-group-title">总览</div>
                 <a href="{{ url_for('dashboard') }}"
                    class="nav-item {% if current_page == 'dashboard' %}active{% endif %}">
-                    总风险页
+                    总分析页
                 </a>
                 <a href="/workflow/new" class="nav-item">单帖自动分析</a>
             </div>
             
             <div class="nav-group">
-                <div class="nav-group-title">风险列表</div>
+                <div class="nav-group-title">风险分类</div>
                 {% for risk in risks %}
-                    <a href="{{ url_for('risk_detail', risk_id=risk.risk_id) }}"
-                       class="nav-item {% if current_risk_id == risk.risk_id and current_page in ['risk', 'post'] %}active{% endif %}">
-                        {{ risk.risk_name }}
-                    </a>
+                    <div class="risk-category">
+                        <a href="{{ url_for('risk_detail', risk_id=risk.risk_id) }}"
+                           class="nav-item {% if current_risk_id == risk.risk_id and current_page in ['risk', 'theme', 'post'] %}active{% endif %}">
+                            {{ risk.risk_name }}
+                        </a>
+                        
+                        {% if risk.risk_id == current_risk_id %}
+                        <div class="theme-list">
+                            {% for theme in risk_themes %}
+                                <a href="{{ url_for('theme_detail', theme=theme) }}"
+                                   class="sub-nav-item {% if current_theme == theme %}active{% endif %}">
+                                    {{ theme }}
+                                </a>
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+                    </div>
                 {% endfor %}
             </div>
 

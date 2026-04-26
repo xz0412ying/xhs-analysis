@@ -61,15 +61,42 @@
 
 <div class="card-grid two">
     <div class="card">
-        <div class="card-title">帖子数量时间趋势（按月）</div>
-        <div class="chart-note">用于分析该风险在时间维度上的热度演化。</div>
-        <div id="riskTrendLine" class="chart"></div>
-    </div>
-    <div class="card">
         <div class="card-title">消极情感时间趋势（按月）</div>
         <div class="chart-note">用于观察该风险负面认知在时间维度上的变化。</div>
         <div id="riskNegativeTrendLine" class="chart"></div>
     </div>
+    <div class="card">
+        <div class="card-title">态度类型时间演化</div>
+        <div class="chart-note">用于分析该风险下主要态度类型的时间演变趋势。</div>
+        <div id="riskAttitudeTrendLine" class="chart"></div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-title">相关主题</div>
+    <div class="chart-note">该风险相关的主题列表</div>
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>主题名称</th>
+                <th>操作</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for theme in risk_themes %}
+            <tr>
+                <td>{{ theme }}</td>
+                <td>
+                    <a class="link-btn" href="{{ url_for('theme_detail', theme=theme) }}">查看详情</a>
+                </td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="2">暂无相关主题</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
 </div>
 
 <div class="card">
@@ -363,33 +390,12 @@ async function loadThemeAttitudeHeatmap() {
     });
 }
 
-async function loadRiskTrend() {
-    const res = await fetch("/api/risk/{{ current_risk_id }}/trend");
-    const data = await res.json();
-
-    const chart = echarts.init(document.getElementById("riskTrendLine"));
-    chart.setOption({
-        tooltip: { trigger: "axis" },
-        grid: { left: 55, right: 25, top: 20, bottom: 40 },
-        xAxis: {
-            type: "category",
-            data: data.map(d => d.dt)
-        },
-        yAxis: { type: "value" },
-        series: [{
-            type: "line",
-            smooth: true,
-            symbolSize: 8,
-            data: data.map(d => d.cnt),
-            itemStyle: { color: "#4E79A7" },
-            lineStyle: { color: "#4E79A7", width: 3 }
-        }]
-    });
-}
-
 async function loadRiskNegativeTrend() {
     const res = await fetch("/api/risk/{{ current_risk_id }}/negative_trend");
     const data = await res.json();
+
+    // 按月份排序
+    data.sort((a, b) => a.dt.localeCompare(b.dt));
 
     const chart = echarts.init(document.getElementById("riskNegativeTrendLine"));
     chart.setOption({
@@ -411,13 +417,67 @@ async function loadRiskNegativeTrend() {
     });
 }
 
+async function loadRiskAttitudeTrend() {
+    const res = await fetch("/api/risk/{{ current_risk_id }}/attitude_trend");
+    const data = await res.json();
+
+    const chart = echarts.init(document.getElementById("riskAttitudeTrendLine"));
+    
+    // 提取所有态度类型
+    const attitudeTypes = [...new Set(data.map(item => item.attitude_type))];
+    // 提取所有时间点并按时间排序
+    const timePoints = [...new Set(data.map(item => item.dt))].sort();
+    
+    // 准备系列数据
+    const series = attitudeTypes.map((type, index) => {
+        const typeData = timePoints.map(dt => {
+            const item = data.find(d => d.dt === dt && d.attitude_type === type);
+            return item ? item.cnt : 0;
+        });
+        
+        return {
+            name: type,
+            type: "line",
+            data: typeData,
+            smooth: true,
+            lineStyle: {
+                color: multiColors[index % multiColors.length]
+            }
+        };
+    });
+    
+    chart.setOption({
+        tooltip: {
+            trigger: "axis",
+            formatter: function(params) {
+                let result = `${params[0].name}<br/>`;
+                params.forEach(param => {
+                    result += `${param.marker}${param.name}：${param.value}<br/>`;
+                });
+                return result;
+            }
+        },
+        legend: {
+            bottom: 0,
+            type: "scroll"
+        },
+        grid: { left: 55, right: 25, top: 20, bottom: 40 },
+        xAxis: {
+            type: "category",
+            data: timePoints
+        },
+        yAxis: { type: "value" },
+        series: series
+    });
+}
+
 loadRiskSentiment();
 loadRiskAttitude();
 loadRiskThemes();
 loadThemeSentimentDistribution();
 loadThemeAttitudeHeatmap();
-loadRiskTrend();
 loadRiskNegativeTrend();
+loadRiskAttitudeTrend();
 
 window.addEventListener("resize", function () {
     const ids = [
@@ -426,8 +486,8 @@ window.addEventListener("resize", function () {
         "riskThemeBar",
         "themeSentimentChart",
         "themeAttitudeHeatmap",
-        "riskTrendLine",
-        "riskNegativeTrendLine"
+        "riskNegativeTrendLine",
+        "riskAttitudeTrendLine"
     ];
     ids.forEach(id => {
         const dom = document.getElementById(id);

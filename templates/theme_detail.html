@@ -1,0 +1,280 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-title">主题分析 - {{ theme_detail.theme }}</div>
+
+<div class="card-grid two">
+    <div class="card stat-card">
+        <div class="stat-label">相关帖子数</div>
+        <div class="stat-value">{{ theme_detail.post_count }}</div>
+    </div>
+    <div class="card stat-card">
+        <div class="stat-label">相关评论数</div>
+        <div class="stat-value">{{ theme_detail.comment_count }}</div>
+    </div>
+</div>
+
+<div class="card-grid two">
+    <div class="card">
+        <div class="card-title">情感分布</div>
+        <div class="chart-note">该主题下评论的情感分布情况</div>
+        <div id="themeSentimentChart" class="chart"></div>
+    </div>
+    <div class="card">
+        <div class="card-title">态度类型分布</div>
+        <div class="chart-note">该主题下评论的态度类型分布</div>
+        <div id="themeAttitudeChart" class="chart"></div>
+    </div>
+</div>
+
+<div class="card-grid two">
+    <div class="card">
+        <div class="card-title">消极情绪时间趋势</div>
+        <div class="chart-note">该主题下消极情绪的时间演变趋势</div>
+        <div id="themeNegativeTrendChart" class="chart"></div>
+    </div>
+    <div class="card">
+        <div class="card-title">态度类型时间演化</div>
+        <div class="chart-note">该主题下主要态度类型的时间演变趋势</div>
+        <div id="themeAttitudeTrendChart" class="chart"></div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-title">相关帖子</div>
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>帖子ID</th>
+                <th>标题</th>
+                <th>发布时间</th>
+                <th>操作</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for post in posts_for_sidebar %}
+            <tr>
+                <td>{{ post.post_id }}</td>
+                <td>{{ post.title or ("帖子 " ~ post.post_id) }}</td>
+                <td>{{ post.publish_time or "" }}</td>
+                <td>
+                    <a class="link-btn" href="{{ url_for('post_detail', post_id=post.post_id) }}">查看详情</a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<script>
+function buildColorMapBySentiment(name) {
+    if (name === "积极") return "#5B8FF9";
+    if (name === "中性") return "#9CCC65";
+    if (name === "消极") return "#F08C2E";
+    return "#91A3B0";
+}
+
+async function loadThemeSentiment() {
+    const theme = "{{ theme_detail.theme }}";
+    const res = await fetch(`/api/theme/${encodeURIComponent(theme)}/detail`);
+    const data = await res.json();
+    
+    const chart = echarts.init(document.getElementById("themeSentimentChart"));
+    chart.setOption({
+        tooltip: { trigger: "item" },
+        legend: { bottom: 0 },
+        series: [{
+            type: "pie",
+            radius: ["40%", "70%"],
+            data: data.sentiment_dist.map(d => ({
+                name: d.sentiment_label,
+                value: d.cnt,
+                itemStyle: { color: buildColorMapBySentiment(d.sentiment_label) }
+            })),
+            label: { formatter: "{b}\n{d}%" }
+        }]
+    });
+}
+
+async function loadThemeAttitude() {
+    const theme = "{{ theme_detail.theme }}";
+    const res = await fetch(`/api/theme/${encodeURIComponent(theme)}/attitude`);
+    const data = await res.json();
+    
+    const chart = echarts.init(document.getElementById("themeAttitudeChart"));
+    chart.setOption({
+        tooltip: {
+            trigger: "item",
+            formatter: function(params) {
+                return `${params.name}<br/>数量：${params.value}`;
+            }
+        },
+        legend: {
+            bottom: 0,
+            type: "scroll"
+        },
+        series: [{
+            name: "态度类型",
+            type: "pie",
+            radius: ["40%", "70%"],
+            center: ["50%", "45%"],
+            roseType: "radius",
+            itemStyle: {
+                borderRadius: 4
+            },
+            label: {
+                formatter: "{b}\n{c}"
+            },
+            data: data.map((d, i) => ({
+                name: d.attitude_type,
+                value: d.cnt,
+                itemStyle: {
+                    color: [
+                        "#4E79A7",
+                        "#5B8FF9",
+                        "#36CFC9",
+                        "#91C95A",
+                        "#F6BD16",
+                        "#F29E4C",
+                        "#E76F51",
+                        "#D1495B",
+                        "#B56576",
+                        "#7A7A7A"
+                    ][i % 10]
+                }
+            }))
+        }]
+    });
+}
+
+async function loadThemeNegativeTrend() {
+    const theme = "{{ theme_detail.theme }}";
+    const res = await fetch(`/api/theme/${encodeURIComponent(theme)}/negative-trend`);
+    const data = await res.json();
+    
+    const chart = echarts.init(document.getElementById("themeNegativeTrendChart"));
+    chart.setOption({
+        tooltip: {
+            trigger: "axis",
+            formatter: function(params) {
+                return `${params[0].name}<br/>消极评论数：${params[0].value}`;
+            }
+        },
+        xAxis: {
+            type: "category",
+            data: data.map(d => d.dt),
+            axisLabel: {
+                rotate: 45
+            }
+        },
+        yAxis: {
+            type: "value"
+        },
+        series: [{
+            data: data.map(d => d.cnt),
+            type: "line",
+            smooth: true,
+            lineStyle: {
+                color: "#F08C2E"
+            },
+            areaStyle: {
+                color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                    { offset: 0, color: "rgba(240, 140, 46, 0.3)" },
+                    { offset: 1, color: "rgba(240, 140, 46, 0.1)" }
+                ])
+            }
+        }]
+    });
+}
+
+async function loadThemeAttitudeTrend() {
+    const theme = "{{ theme_detail.theme }}";
+    const res = await fetch(`/api/theme/${encodeURIComponent(theme)}/attitude-trend`);
+    const data = await res.json();
+    
+    const chart = echarts.init(document.getElementById("themeAttitudeTrendChart"));
+    
+    // 提取所有态度类型
+    const attitudeTypes = [...new Set(data.map(item => item.attitude_type))];
+    // 提取所有时间点
+    const timePoints = [...new Set(data.map(item => item.dt))].sort();
+    
+    // 准备系列数据
+    const series = attitudeTypes.map((type, index) => {
+        const typeData = timePoints.map(dt => {
+            const item = data.find(d => d.dt === dt && d.attitude_type === type);
+            return item ? item.cnt : 0;
+        });
+        
+        return {
+            name: type,
+            type: "line",
+            data: typeData,
+            smooth: true,
+            lineStyle: {
+                color: [
+                    "#4E79A7",
+                    "#5B8FF9",
+                    "#36CFC9",
+                    "#91C95A",
+                    "#F6BD16",
+                    "#F29E4C",
+                    "#E76F51",
+                    "#D1495B",
+                    "#B56576",
+                    "#7A7A7A"
+                ][index % 10]
+            }
+        };
+    });
+    
+    chart.setOption({
+        tooltip: {
+            trigger: "axis",
+            formatter: function(params) {
+                let result = `${params[0].name}<br/>`;
+                params.forEach(param => {
+                    result += `${param.marker}${param.name}：${param.value}<br/>`;
+                });
+                return result;
+            }
+        },
+        legend: {
+            bottom: 0,
+            type: "scroll"
+        },
+        xAxis: {
+            type: "category",
+            data: timePoints,
+            axisLabel: {
+                rotate: 45
+            }
+        },
+        yAxis: {
+            type: "value"
+        },
+        series: series
+    });
+}
+
+loadThemeSentiment();
+loadThemeAttitude();
+loadThemeNegativeTrend();
+loadThemeAttitudeTrend();
+
+window.addEventListener("resize", function () {
+    const ids = [
+        "themeSentimentChart",
+        "themeAttitudeChart",
+        "themeNegativeTrendChart",
+        "themeAttitudeTrendChart"
+    ];
+    ids.forEach(id => {
+        const dom = document.getElementById(id);
+        if (dom) {
+            echarts.getInstanceByDom(dom)?.resize();
+        }
+    });
+});
+</script>
+{% endblock %}

@@ -1,9 +1,9 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="page-title">总风险分析</div>
+<div class="page-title">总分析页</div>
 
-<div class="card-grid five">
+<div class="card-grid six">
     <div class="card stat-card">
         <div class="stat-label">帖子总数</div>
         <div class="stat-value">{{ stats.post_count }}</div>
@@ -15,6 +15,10 @@
     <div class="card stat-card">
         <div class="stat-label">核心风险类别数</div>
         <div class="stat-value">{{ stats.risk_count }}</div>
+    </div>
+    <div class="card stat-card">
+        <div class="stat-label">主题总数</div>
+        <div class="stat-value">{{ themes|length }}</div>
     </div>
     <div class="card stat-card">
         <div class="stat-label">已标注情感评论数</div>
@@ -59,21 +63,22 @@
 </div>
 
 <div class="card">
-    <div class="card-title">风险共现热力图</div>
-    <div class="chart-note">用于展示不同风险类别之间的共现关系，识别公众认知中经常被同时提及的风险组合。</div>
-    <div id="riskCooccurrenceHeatmap" class="chart large"></div>
-</div>
-
-<div class="card">
     <div class="card-title">风险热度-消极率散点图</div>
     <div class="chart-note">用于同时比较风险热度与消极情感强度，识别既受广泛关注又引发明显负面认知的重点风险。</div>
     <div id="riskHeatScatter" class="chart large"></div>
 </div>
 
-<div class="card">
-    <div class="card-title">风险时间演化趋势（Top5，按月）</div>
-    <div class="chart-note">用于展示主要风险类型在时间维度上的热度演化，观察风险关注焦点的阶段性变化。</div>
-    <div id="riskTrendChart" class="chart large"></div>
+<div class="card-grid two">
+    <div class="card">
+        <div class="card-title">情感时间演化趋势</div>
+        <div class="chart-note">用于展示不同情感类型在时间维度上的演化趋势，观察公众情绪的变化。</div>
+        <div id="sentimentTrendChart" class="chart"></div>
+    </div>
+    <div class="card">
+        <div class="card-title">态度类型时间演化</div>
+        <div class="chart-note">用于展示主要态度类型在时间维度上的演化趋势，观察公众态度的变化。</div>
+        <div id="attitudeTrendChart" class="chart"></div>
+    </div>
 </div>
 
 <div class="card">
@@ -136,14 +141,14 @@ function buildColorMapBySentiment(name) {
 }
 
 const negativePalette = [
-    "#F6BD16",
-    "#F29E4C",
-    "#E76F51",
-    "#D1495B",
-    "#C1121F",
-    "#9B2226",
-    "#B56576",
-    "#E9C46A"
+    "#1F77B4",  // 蓝色
+    "#FF7F0E",  // 橙色
+    "#2CA02C",  // 绿色
+    "#D62728",  // 红色
+    "#9467BD",  // 紫色
+    "#8C564B",  // 棕色
+    "#E377C2",  // 粉色
+    "#7F7F7F"   // 灰色
 ];
 
 async function loadRiskDistribution() {
@@ -299,61 +304,7 @@ async function loadRiskSentimentDistribution() {
     });
 }
 
-async function loadRiskCooccurrenceHeatmap() {
-    const res = await fetch("/api/risk_cooccurrence");
-    const data = await res.json();
 
-    const risks = data.risks || [];
-    const values = data.values || [];
-    const maxValue = values.length ? Math.max(...values.map(v => v[2])) : 0;
-
-    const chart = echarts.init(document.getElementById("riskCooccurrenceHeatmap"));
-    chart.setOption({
-        tooltip: {
-            position: "top",
-            formatter: function(params) {
-                return `风险A：${risks[params.data[0]]}<br>风险B：${risks[params.data[1]]}<br>共现次数：${params.data[2]}`;
-            }
-        },
-        grid: {
-            left: 140,
-            right: 30,
-            top: 20,
-            bottom: 100
-        },
-        xAxis: {
-            type: "category",
-            data: risks,
-            splitArea: { show: true },
-            axisLabel: axisLabelVertical(140)
-        },
-        yAxis: {
-            type: "category",
-            data: risks,
-            splitArea: { show: true },
-            axisLabel: {
-                width: 120,
-                overflow: "truncate"
-            }
-        },
-        visualMap: {
-            min: 0,
-            max: maxValue || 1,
-            calculable: true,
-            orient: "horizontal",
-            left: "center",
-            bottom: 20,
-            inRange: {
-                color: ["#FFF7BC", "#FEC44F", "#F03B20", "#BD0026"]
-            }
-        },
-        series: [{
-            type: "heatmap",
-            data: values,
-            label: { show: true }
-        }]
-    });
-}
 
 async function loadRiskHeatScatter() {
     const res = await fetch("/api/risk_heat_scatter");
@@ -438,13 +389,81 @@ async function loadRiskTrend() {
     });
 }
 
+async function loadSentimentTrend() {
+    const res = await fetch("/api/sentiment_trend");
+    const data = await res.json();
+
+    const months = [...new Set(data.map(d => d.month_label))].sort();
+    const sentiments = [...new Set(data.map(d => d.sentiment_label))];
+
+    const series = sentiments.map(sentiment => ({
+        name: sentiment,
+        type: "line",
+        smooth: true,
+        symbolSize: 8,
+        lineStyle: { width: 3 },
+        itemStyle: { color: buildColorMapBySentiment(sentiment) },
+        data: months.map(month => {
+            const row = data.find(d => d.month_label === month && d.sentiment_label === sentiment);
+            return row ? row.cnt : 0;
+        })
+    }));
+
+    const chart = echarts.init(document.getElementById("sentimentTrendChart"));
+    chart.setOption({
+        tooltip: { trigger: "axis" },
+        legend: {
+            top: 0,
+            type: "scroll"
+        },
+        grid: { left: 60, right: 30, top: 50, bottom: 40 },
+        xAxis: { type: "category", data: months },
+        yAxis: { type: "value" },
+        series: series
+    });
+}
+
+async function loadAttitudeTrend() {
+    const res = await fetch("/api/attitude_trend");
+    const data = await res.json();
+
+    const months = [...new Set(data.map(d => d.month_label))].sort();
+    const attitudes = [...new Set(data.map(d => d.attitude_type))];
+
+    const series = attitudes.map((attitude, i) => ({
+        name: attitude,
+        type: "line",
+        smooth: true,
+        symbolSize: 8,
+        lineStyle: { width: 3 },
+        itemStyle: { color: negativePalette[i % negativePalette.length] },
+        data: months.map(month => {
+            const row = data.find(d => d.month_label === month && d.attitude_type === attitude);
+            return row ? row.cnt : 0;
+        })
+    }));
+
+    const chart = echarts.init(document.getElementById("attitudeTrendChart"));
+    chart.setOption({
+        tooltip: { trigger: "axis" },
+        legend: {
+            top: 0,
+            type: "scroll"
+        },
+        grid: { left: 60, right: 30, top: 50, bottom: 40 },
+        xAxis: { type: "category", data: months },
+        yAxis: { type: "value" },
+        series: series
+    });
+}
+
 loadRiskDistribution();
 loadSentimentOverview();
 loadRiskNegativeRate();
 loadRiskSentimentDistribution();
-loadRiskCooccurrenceHeatmap();
 loadRiskHeatScatter();
-loadRiskTrend();
+loadSentimentTrend();
+loadAttitudeTrend();
 
 window.addEventListener("resize", function () {
     const ids = [
@@ -453,9 +472,9 @@ window.addEventListener("resize", function () {
         "sentimentOverviewChart",
         "riskNegativeRateChart",
         "riskSentimentChart",
-        "riskCooccurrenceHeatmap",
         "riskHeatScatter",
-        "riskTrendChart"
+        "sentimentTrendChart",
+        "attitudeTrendChart"
     ];
     ids.forEach(id => {
         const dom = document.getElementById(id);
