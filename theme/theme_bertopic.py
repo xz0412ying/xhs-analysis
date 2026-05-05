@@ -205,9 +205,9 @@ def build_candidate_mts(base_mts):
 def get_target_topic_count(post_count):
     """
     用帖子数量估一个“合理主题数”
-    这里取帖子数的 1/2，最小为 5
+    这里取帖子数的 0.3  最小为 5
     """
-    return max(5, round(post_count * 0.5))
+    return max(5, round(post_count * 0.3))
 
 
 # =========================
