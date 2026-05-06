@@ -1,4 +1,3 @@
-import threading
 from flask import Blueprint, render_template, request, jsonify, redirect, url_for
 from workflow_ui.task_service import create_task, get_task
 from workflow_ui.pipeline_runner import run_single_post_pipeline
@@ -17,12 +16,8 @@ def workflow_new():
 
     task_id = create_task(url, title, publish_time, content)
 
-    thread = threading.Thread(
-        target=run_single_post_pipeline,
-        args=(task_id, url, title, publish_time, content),
-        daemon=True
-    )
-    thread.start()
+    # 直接同步执行任务（暂时移除线程，解决线程卡住的问题）
+    run_single_post_pipeline(task_id, url, title, publish_time, content)
 
     return redirect(url_for("workflow_bp.workflow_progress", task_id=task_id))
 

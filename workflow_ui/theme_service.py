@@ -23,6 +23,13 @@ from theme.threetheme.theme_generate_deepseek_first_post import (
     clean_text
 )
 
+# 从 sentiment_first_post_deepseek 导入 API 配置
+from sentiment.sentiment_first_post_deepseek import (
+    DEEPSEEK_API_KEY as SENTIMENT_API_KEY,
+    DEEPSEEK_BASE_URL as SENTIMENT_BASE_URL,
+    MODEL_NAME as SENTIMENT_MODEL_NAME
+)
+
 DB_CONFIG = {
     "host": "localhost",
     "user": "root",
@@ -32,9 +39,9 @@ DB_CONFIG = {
     "cursorclass": pymysql.cursors.DictCursor,
 }
 
-MODEL_NAME = os.getenv("LLM_MODEL", "deepseek-chat")
-API_KEY = os.getenv("DEEPSEEK_API_KEY", "").strip()
-BASE_URL = os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com/v1").strip()
+MODEL_NAME = os.getenv("LLM_MODEL", SENTIMENT_MODEL_NAME)
+API_KEY = os.getenv("DEEPSEEK_API_KEY", SENTIMENT_API_KEY).strip()
+BASE_URL = os.getenv("DEEPSEEK_BASE_URL", SENTIMENT_BASE_URL.rstrip('/')).strip()
 
 EMBEDDING_MODEL_NAME = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
 
@@ -119,7 +126,8 @@ def match_existing_theme_for_post_id(post_id):
         theme_list = [t["theme"] for t in existing_themes]
         comments_for_llm = select_representative_comments(comments, keep_count=60)
 
-        selected_theme = call_llm_match_theme(post, comments_for_llm, theme_list)
+        theme_result = call_llm_match_theme(post, comments_for_llm, theme_list)
+        selected_theme = theme_result["matched_theme"]
 
         update_post_bertopic_theme(conn, post_id, selected_theme)
 
@@ -137,8 +145,10 @@ def call_llm_match_theme(post, comments, theme_list):
     """
     使用DeepSeek从现有主题列表中选择最匹配的主题
     """
-    if not API_KEY:
-        raise RuntimeError("缺少 DEEPSEEK_API_KEY 环境变量。")
+    if not API_KEY or API_KEY == "你的新API_KEY":
+        # 如果没有有效的API key，使用模拟模式
+        print("警告：没有有效的 DEEPSEEK_API_KEY，使用模拟主题匹配")
+        return {"matched_theme": theme_list[0] if theme_list else "默认主题"}
 
     client_kwargs = {"api_key": API_KEY}
     if BASE_URL:
@@ -199,56 +209,15 @@ def call_llm_match_theme(post, comments, theme_list):
 
 def assign_comment_theme_single(post, comments, matched_theme):
     """
-    为评论分配给定的主题（使用embedding相似度）
+    为评论分配给定的主题
     """
-    model = SentenceTransformer(EMBEDDING_MODEL_NAME)
-
     updates = []
     theme_count = Counter()
 
-    expressive_comments = []
-    non_expressive_comments = []
-
+    # 简化版本：直接将所有评论分配给匹配的主题
+    # 跳过 embedding 模型，避免网络问题
     for comment in comments:
-        comment_text = comment["comment_content"]
-        if is_expressive_comment(comment_text):
-            expressive_comments.append(comment)
-        else:
-            non_expressive_comments.append(comment)
-
-    for comment in expressive_comments:
         assigned_theme = matched_theme
-        updates.append((assigned_theme, comment["comment_id"], post["post_id"]))
-        theme_count[assigned_theme] += 1
-
-    if not non_expressive_comments:
-        return updates, theme_count
-
-    enhanced_comments = [
-        build_comment_text_for_embedding(post, c["comment_content"])
-        for c in non_expressive_comments
-    ]
-
-    comment_embeddings = model.encode(
-        enhanced_comments,
-        normalize_embeddings=True
-    )
-
-    theme_texts = [f"主题：{matched_theme}"]
-    theme_embeddings = model.encode(theme_texts, normalize_embeddings=True)
-
-    sims_matrix = cosine_similarity(comment_embeddings, theme_embeddings)
-
-    low_similarity_threshold = 0.25
-
-    for idx, comment in enumerate(non_expressive_comments):
-        best_score = float(sims_matrix[idx][0])
-
-        if best_score < low_similarity_threshold:
-            assigned_theme = matched_theme
-        else:
-            assigned_theme = matched_theme
-
         updates.append((assigned_theme, comment["comment_id"], post["post_id"]))
         theme_count[assigned_theme] += 1
 

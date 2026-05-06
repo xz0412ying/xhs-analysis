@@ -44,10 +44,9 @@
         <div class="task-step-list">
             <div class="task-step-item" id="step-crawling">1. 爬虫抓取评论</div>
             <div class="task-step-item" id="step-storing">2. 数据写入数据库</div>
-            <div class="task-step-item" id="step-theme">3. 主题分析</div>
+            <div class="task-step-item" id="step-theme">3. 主题匹配</div>
             <div class="task-step-item" id="step-sentiment">4. 情感分析</div>
-            <div class="task-step-item" id="step-risk">5. 风险判断与更新</div>
-            <div class="task-step-item" id="step-done">6. 生成单帖分析页</div>
+            <div class="task-step-item" id="step-done">5. 生成单帖分析页</div>
         </div>
 
         <div id="taskSuccessBox" class="task-result-box success-box" style="display:none;">
@@ -103,7 +102,6 @@ function resetSteps() {
         "step-storing",
         "step-theme",
         "step-sentiment",
-        "step-risk",
         "step-done"
     ];
     ids.forEach(id => {
@@ -118,10 +116,10 @@ function highlightStep(stage) {
     const map = {
         "爬取评论": ["step-crawling"],
         "写入数据库": ["step-crawling", "step-storing"],
+        "主题匹配": ["step-crawling", "step-storing", "step-theme"],
         "主题分析": ["step-crawling", "step-storing", "step-theme"],
         "情感分析": ["step-crawling", "step-storing", "step-theme", "step-sentiment"],
-        "风险判断": ["step-crawling", "step-storing", "step-theme", "step-sentiment", "step-risk"],
-        "分析完成": ["step-crawling", "step-storing", "step-theme", "step-sentiment", "step-risk", "step-done"]
+        "分析完成": ["step-crawling", "step-storing", "step-theme", "step-sentiment", "step-done"]
     };
 
     let matched = [];

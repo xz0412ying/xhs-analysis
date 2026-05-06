@@ -1,9 +1,7 @@
 from flask import Flask, render_template, jsonify
 import pymysql
-from workflow_ui.routes_workflow import workflow_bp
 
 app = Flask(__name__)
-app.register_blueprint(workflow_bp)
 
 DB_CONFIG = {
     "host": "127.0.0.1",

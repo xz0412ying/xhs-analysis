@@ -20,7 +20,7 @@ API_KEY = "sk-03214af033c741ad8dbc45e59976a27e"
 BASE_URL = "https://api.deepseek.com"
 MODEL_NAME = "deepseek-chat"
 
-BERTOPIC_FILE = "bertopic_topics.xlsx"
+BERTOPIC_FILE = "bertopic_topics_best.xlsx"
 TOPIC_COL = "Topic"
 KEYWORDS_COL = "Keywords"
 DESC_COL = "Semantic_Description"
@@ -129,7 +129,7 @@ def interpret_bertopic_topic(topic_id, keywords):
     prompt = f"""
 你是一个擅长主题分析的专家。
 
-下面是一组由BERTopic主题模型输出的主题关键词：
+下面是一组关于AI人工智能的相关帖子和评论，并由BERTopic主题模型输出的主题关键词：
 
 主题编号：{topic_id}
 主题关键词：{keywords}

@@ -14,12 +14,12 @@ DB_CONFIG = {
     "charset": "utf8mb4"
 }
 
-DEEPSEEK_API_KEY = "你的新API_KEY"
+DEEPSEEK_API_KEY = "sk-03214af033c741ad8dbc45e59976a27e"
 DEEPSEEK_BASE_URL = "https://api.deepseek.com"
 MODEL_NAME = "deepseek-chat"
 
-BATCH_SIZE = 10   # 每批处理数量
-ONLY_NULL = True  # 只处理未分析的
+BATCH_SIZE = 10
+ONLY_NULL = True
 
 
 # =========================
@@ -45,40 +45,23 @@ def fetch_comments(conn):
         return c.fetchall()
 
 
-def update_result(conn, results):
-    with conn.cursor() as c:
-        for r in results:
-            c.execute("""
-            UPDATE comments
-            SET sentiment_label=%s,
-                sentiment_score=%s,
-                attitude_type=%s
-            WHERE comment_id=%s
-            """, (
-                r["sentiment_label"],
-                r["sentiment_score"],
-                r["attitude_type"],
-                r["comment_id"]
-            ))
-
-
 # =========================
-# prompt（极简版）
+# prompt（低token版）
 # =========================
 def build_prompt(batch):
     text = "\n".join([
-        f'{i+1}. id={x["comment_id"]} 主题={x["bertopic_theme"][:30]} 评论={x["comment_content"][:150]}'
+        f'{i+1}. 主题={x["bertopic_theme"][:30]} 评论={x["comment_content"][:150]}'
         for i, x in enumerate(batch)
     ])
 
     return f"""
-按主题和评论判断情感，输出JSON数组：
+判断每条评论情感，输出JSON数组：
 
 sentiment_label=[积极,中性,消极]
 sentiment_score=0-10整数
 attitude_type=[支持,认可,担忧,警惕,质疑,反对,愤怒,疑惑,调侃,无明显态度]
 
-只输出JSON数组。
+只输出JSON数组，顺序必须一致。
 
 {text}
 """.strip()
@@ -99,15 +82,55 @@ def call_llm(client, prompt):
     return resp.choices[0].message.content.strip()
 
 
+# =========================
+# JSON解析（增强版）
+# =========================
 def parse_json(text):
     text = re.sub(r"```json|```", "", text).strip()
+
     try:
         return json.loads(text)
     except:
-        m = re.search(r"\[.*\]", text, re.S)
-        if m:
-            return json.loads(m.group())
+        pass
+
+    match = re.search(r"\[.*\]", text, re.S)
+    if match:
+        try:
+            return json.loads(match.group())
+        except:
+            pass
+
     return None
+
+
+# =========================
+# 写入数据库（用顺序匹配）
+# =========================
+def update_result(conn, batch, results):
+    with conn.cursor() as c:
+        for i, r in enumerate(results):
+            try:
+                comment_id = batch[i]["comment_id"]
+
+                sentiment_label = r.get("sentiment_label", "中性")
+                sentiment_score = int(r.get("sentiment_score", 5))
+                attitude_type = r.get("attitude_type", "无明显态度")
+
+                c.execute("""
+                UPDATE comments
+                SET sentiment_label=%s,
+                    sentiment_score=%s,
+                    attitude_type=%s
+                WHERE comment_id=%s
+                """, (
+                    sentiment_label,
+                    sentiment_score,
+                    attitude_type,
+                    comment_id
+                ))
+
+            except Exception as e:
+                print("单条失败:", e, r)
 
 
 # =========================
@@ -132,14 +155,19 @@ def run():
                 print("解析失败:", raw)
                 continue
 
-            update_result(conn, result)
+            # ⚠️ 数量校验（非常重要）
+            if len(result) != len(batch):
+                print("数量不一致，跳过:", len(result), len(batch))
+                continue
+
+            update_result(conn, batch, result)
             conn.commit()
 
-            print(f"[{i//BATCH_SIZE+1}] 成功处理 {len(batch)} 条")
+            print(f"[批次 {i//BATCH_SIZE+1}] 成功 {len(batch)} 条")
 
         except Exception as e:
             conn.rollback()
-            print("错误:", e)
+            print("批次失败:", e)
 
     conn.close()
 

@@ -28,24 +28,7 @@
     </div>
 </div>
 
-<div class="card-grid two">
-    <div class="card">
-        <div class="card-title">评论主题 Top10</div>
-        <div class="chart-note">用于揭示该帖子评论区最集中的讨论子议题。</div>
-        <div id="postThemeChart" class="chart"></div>
-    </div>
-    <div class="card">
-        <div class="card-title">主题 × 情感分布</div>
-        <div class="chart-note">用于比较不同评论主题下的情感差异，识别更易引发消极情绪的子议题。</div>
-        <div id="postThemeSentimentChart" class="chart"></div>
-    </div>
-</div>
 
-<div class="card">
-    <div class="card-title">主题 × 态度热力图</div>
-    <div class="chart-note">用于展示不同评论主题对应的态度差异，分析该帖评论区的立场分化结构。</div>
-    <div id="postThemeAttitudeHeatmap" class="chart xlarge"></div>
-</div>
 
 <div class="card">
     <div class="card-title">高赞代表性评论</div>
@@ -167,166 +150,15 @@ async function loadPostAttitude() {
     });
 }
 
-async function loadPostThemes() {
-    const res = await fetch("/api/post/{{ post.post_id }}/themes");
-    const data = await res.json();
 
-    const names = data.map(d => d.assigned_theme);
-    const values = data.map(d => d.cnt);
-
-    const chart = echarts.init(document.getElementById("postThemeChart"));
-    chart.setOption({
-        tooltip: {
-            trigger: "axis",
-            axisPointer: { type: "shadow" },
-            formatter: function(params) {
-                const p = params[0];
-                return `${p.name}<br/>数量：${p.value}`;
-            }
-        },
-        grid: { left: 60, right: 20, top: 20, bottom: 90 },
-        xAxis: {
-            type: "category",
-            data: names,
-            axisLabel: {
-                interval: 0,
-                formatter: function(value) {
-                    return value.length > 8 ? value.slice(0, 8) + "…" : value;
-                }
-            }
-        },
-        yAxis: {
-            type: "value"
-        },
-        series: [{
-            type: "bar",
-            barWidth: 28,
-            data: values.map((v, i) => ({
-                value: v,
-                itemStyle: {
-                    color: multiColors[i % multiColors.length]
-                }
-            })),
-            label: {
-                show: true,
-                position: "top"
-            }
-        }]
-    });
-}
-
-async function loadPostThemeSentiment() {
-    const res = await fetch("/api/post/{{ post.post_id }}/theme_sentiment_distribution");
-    const data = await res.json();
-
-    const themes = [...new Set(data.map(d => d.assigned_theme))];
-    const sentiments = ["积极", "中性", "消极"].filter(s =>
-        data.some(d => d.sentiment_label === s)
-    );
-
-    const series = sentiments.map(sentiment => ({
-        name: sentiment,
-        type: "bar",
-        stack: "total",
-        barWidth: 22,
-        itemStyle: { color: sentimentColor(sentiment) },
-        data: themes.map(theme => {
-            const row = data.find(d => d.assigned_theme === theme && d.sentiment_label === sentiment);
-            return row ? row.cnt : 0;
-        })
-    }));
-
-    const chart = echarts.init(document.getElementById("postThemeSentimentChart"));
-    chart.setOption({
-        tooltip: { trigger: "axis", axisPointer: { type: "shadow" } },
-        legend: { top: 0 },
-        grid: { left: 180, right: 25, top: 50, bottom: 25 },
-        xAxis: {
-            type: "value",
-            splitLine: { show: true }
-        },
-        yAxis: {
-            type: "category",
-            data: themes,
-            axisLabel: {
-                width: 145,
-                overflow: "truncate"
-            }
-        },
-        series: series
-    });
-}
-
-async function loadPostThemeAttitudeHeatmap() {
-    const res = await fetch("/api/post/{{ post.post_id }}/theme_attitude_matrix");
-    const data = await res.json();
-
-    const themes = data.themes || [];
-    const attitudes = data.attitudes || [];
-    const values = data.values || [];
-    const maxValue = values.length ? Math.max(...values.map(v => v[2])) : 0;
-
-    const chart = echarts.init(document.getElementById("postThemeAttitudeHeatmap"));
-    chart.setOption({
-        tooltip: {
-            position: "top",
-            formatter: function(params) {
-                return `主题：${themes[params.data[0]]}<br>态度：${attitudes[params.data[1]]}<br>数量：${params.data[2]}`;
-            }
-        },
-        grid: {
-            left: 150,
-            right: 30,
-            top: 20,
-            bottom: 90
-        },
-        xAxis: {
-            type: "category",
-            data: themes,
-            splitArea: { show: true },
-            axisLabel: axisLabelNoRotate(120)
-        },
-        yAxis: {
-            type: "category",
-            data: attitudes,
-            splitArea: { show: true },
-            axisLabel: {
-                width: 110,
-                overflow: "truncate"
-            }
-        },
-        visualMap: {
-            min: 0,
-            max: maxValue || 1,
-            calculable: true,
-            orient: "horizontal",
-            left: "center",
-            bottom: 20,
-            inRange: {
-                color: ["#FFF4CC", "#F6BD16", "#E76F51", "#B83232"]
-            }
-        },
-        series: [{
-            type: "heatmap",
-            data: values,
-            label: { show: true }
-        }]
-    });
-}
 
 loadPostSentiment();
 loadPostAttitude();
-loadPostThemes();
-loadPostThemeSentiment();
-loadPostThemeAttitudeHeatmap();
 
 window.addEventListener("resize", function () {
     const ids = [
         "postSentimentChart",
-        "postAttitudeChart",
-        "postThemeChart",
-        "postThemeSentimentChart",
-        "postThemeAttitudeHeatmap"
+        "postAttitudeChart"
     ];
     ids.forEach(id => {
         const dom = document.getElementById(id);
