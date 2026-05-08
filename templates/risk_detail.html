@@ -236,7 +236,7 @@ async function loadRiskThemes() {
     const res = await fetch("/api/risk/{{ current_risk_id }}/themes");
     const data = await res.json();
 
-    const names = data.map(d => d.assigned_theme);
+    const names = data.map(d => d.bertopic_theme);
     const values = data.map(d => d.cnt);
 
     const chart = echarts.init(document.getElementById("riskThemeBar"));
@@ -295,7 +295,7 @@ async function loadThemeSentimentDistribution() {
     const res = await fetch("/api/risk/{{ current_risk_id }}/theme_sentiment_distribution");
     const data = await res.json();
 
-    const themes = [...new Set(data.map(d => d.assigned_theme))];
+    const themes = [...new Set(data.map(d => d.bertopic_theme))];
     const sentiments = ["积极", "中性", "消极"].filter(s =>
         data.some(d => d.sentiment_label === s)
     );
@@ -307,7 +307,7 @@ async function loadThemeSentimentDistribution() {
         barWidth: 22,
         itemStyle: { color: sentimentColor(sentiment) },
         data: themes.map(theme => {
-            const row = data.find(d => d.assigned_theme === theme && d.sentiment_label === sentiment);
+            const row = data.find(d => d.bertopic_theme === theme && d.sentiment_label === sentiment);
             return row ? row.cnt : 0;
         })
     }));

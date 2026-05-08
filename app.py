@@ -590,18 +590,17 @@ def get_risk_attitude_summary(risk_id):
 def get_risk_theme_summary(risk_id, limit=10):
     conn = get_connection()
     try:
-        with conn.cursor() as cursor:
-            # 尝试使用帖子表和主题表的关联来获取风险主题摘要
+        with conn.cursor(pymysql.cursors.DictCursor) as cursor:
             try:
                 cursor.execute("""
-                    SELECT c.assigned_theme, COUNT(*) AS cnt
+                    SELECT p.bertopic_theme, COUNT(*) AS cnt
                     FROM comments c
                     JOIN posts p ON c.post_id = p.post_id
                     JOIN theme_bertopic tb ON p.bertopic_theme = tb.theme
                     WHERE tb.risk_id = %s
-                      AND c.assigned_theme IS NOT NULL
-                      AND c.assigned_theme <> ''
-                    GROUP BY c.assigned_theme
+                      AND p.bertopic_theme IS NOT NULL
+                      AND p.bertopic_theme <> ''
+                    GROUP BY p.bertopic_theme
                     ORDER BY cnt DESC
                     LIMIT %s
                 """, (risk_id, limit))
@@ -612,7 +611,6 @@ def get_risk_theme_summary(risk_id, limit=10):
                 print(f"Error in get_risk_theme_summary: {e}")
                 pass
             
-            # 如果没有数据或表不存在，返回空列表
             return []
     finally:
         conn.close()
@@ -1030,28 +1028,22 @@ def get_theme_attitude_trend(theme):
 def get_risk_theme_attitude_matrix(risk_id, theme_limit=8):
     conn = get_connection()
     try:
-        with conn.cursor() as cursor:
-            # 尝试查询，如果表不存在则返回空结果
+        with conn.cursor(pymysql.cursors.DictCursor) as cursor:
             try:
                 cursor.execute("""
-                    SELECT assigned_theme
-                    FROM (
-                        SELECT
-                            c.assigned_theme,
-                            COUNT(*) AS cnt
-                        FROM comments c
-                        JOIN posts p ON c.post_id = p.post_id
-                        JOIN theme_bertopic tb ON p.bertopic_theme = tb.theme
-                        WHERE tb.risk_id = %s
-                          AND c.assigned_theme IS NOT NULL
-                          AND c.assigned_theme <> ''
-                        GROUP BY c.assigned_theme
-                        ORDER BY cnt DESC
-                        LIMIT %s
-                    ) t
+                    SELECT p.bertopic_theme
+                    FROM comments c
+                    JOIN posts p ON c.post_id = p.post_id
+                    JOIN theme_bertopic tb ON p.bertopic_theme = tb.theme
+                    WHERE tb.risk_id = %s
+                      AND p.bertopic_theme IS NOT NULL
+                      AND p.bertopic_theme <> ''
+                    GROUP BY p.bertopic_theme
+                    ORDER BY COUNT(*) DESC
+                    LIMIT %s
                 """, (risk_id, theme_limit))
                 top_theme_rows = cursor.fetchall()
-                top_themes = [row["assigned_theme"] for row in top_theme_rows]
+                top_themes = [row["bertopic_theme"] for row in top_theme_rows]
 
                 if not top_themes:
                     return {"themes": [], "attitudes": [], "values": []}
@@ -1059,17 +1051,17 @@ def get_risk_theme_attitude_matrix(risk_id, theme_limit=8):
                 placeholders = ",".join(["%s"] * len(top_themes))
                 sql = f"""
                     SELECT
-                        c.assigned_theme,
+                        p.bertopic_theme,
                         c.attitude_type,
                         COUNT(*) AS cnt
                     FROM comments c
                     JOIN posts p ON c.post_id = p.post_id
                     JOIN theme_bertopic tb ON p.bertopic_theme = tb.theme
                     WHERE tb.risk_id = %s
-                      AND c.assigned_theme IN ({placeholders})
+                      AND p.bertopic_theme IN ({placeholders})
                       AND c.attitude_type IS NOT NULL
-                    GROUP BY c.assigned_theme, c.attitude_type
-                    ORDER BY c.assigned_theme, c.attitude_type
+                    GROUP BY p.bertopic_theme, c.attitude_type
+                    ORDER BY p.bertopic_theme, c.attitude_type
                 """
                 cursor.execute(sql, [risk_id] + top_themes)
                 rows = cursor.fetchall()
@@ -1077,8 +1069,8 @@ def get_risk_theme_attitude_matrix(risk_id, theme_limit=8):
                 attitudes = sorted(list({row["attitude_type"] for row in rows if row["attitude_type"]}))
                 values = []
                 for row in rows:
-                    if row["assigned_theme"] in top_themes and row["attitude_type"] in attitudes:
-                        x = top_themes.index(row["assigned_theme"])
+                    if row["bertopic_theme"] in top_themes and row["attitude_type"] in attitudes:
+                        x = top_themes.index(row["bertopic_theme"])
                         y = attitudes.index(row["attitude_type"])
                         values.append([x, y, row["cnt"]])
 
@@ -1087,7 +1079,8 @@ def get_risk_theme_attitude_matrix(risk_id, theme_limit=8):
                     "attitudes": attitudes,
                     "values": values
                 }
-            except Exception:
+            except Exception as e:
+                print(f"Error in get_risk_theme_attitude_matrix: {e}")
                 return {"themes": [], "attitudes": [], "values": []}
     finally:
         conn.close()
@@ -1096,28 +1089,22 @@ def get_risk_theme_attitude_matrix(risk_id, theme_limit=8):
 def get_risk_theme_sentiment_distribution(risk_id, theme_limit=8):
     conn = get_connection()
     try:
-        with conn.cursor() as cursor:
-            # 尝试查询，如果表不存在则返回空列表
+        with conn.cursor(pymysql.cursors.DictCursor) as cursor:
             try:
                 cursor.execute("""
-                    SELECT assigned_theme
-                    FROM (
-                        SELECT
-                            c.assigned_theme,
-                            COUNT(*) AS cnt
-                        FROM comments c
-                        JOIN posts p ON c.post_id = p.post_id
-                        JOIN theme_bertopic tb ON p.bertopic_theme = tb.theme
-                        WHERE tb.risk_id = %s
-                          AND c.assigned_theme IS NOT NULL
-                          AND c.assigned_theme <> ''
-                        GROUP BY c.assigned_theme
-                        ORDER BY cnt DESC
-                        LIMIT %s
-                    ) t
+                    SELECT p.bertopic_theme
+                    FROM comments c
+                    JOIN posts p ON c.post_id = p.post_id
+                    JOIN theme_bertopic tb ON p.bertopic_theme = tb.theme
+                    WHERE tb.risk_id = %s
+                      AND p.bertopic_theme IS NOT NULL
+                      AND p.bertopic_theme <> ''
+                    GROUP BY p.bertopic_theme
+                    ORDER BY COUNT(*) DESC
+                    LIMIT %s
                 """, (risk_id, theme_limit))
                 top_theme_rows = cursor.fetchall()
-                top_themes = [row["assigned_theme"] for row in top_theme_rows]
+                top_themes = [row["bertopic_theme"] for row in top_theme_rows]
 
                 if not top_themes:
                     return []
@@ -1125,21 +1112,22 @@ def get_risk_theme_sentiment_distribution(risk_id, theme_limit=8):
                 placeholders = ",".join(["%s"] * len(top_themes))
                 sql = f"""
                     SELECT
-                        c.assigned_theme,
+                        p.bertopic_theme,
                         c.sentiment_label,
                         COUNT(*) AS cnt
                     FROM comments c
                     JOIN posts p ON c.post_id = p.post_id
                     JOIN theme_bertopic tb ON p.bertopic_theme = tb.theme
                     WHERE tb.risk_id = %s
-                      AND c.assigned_theme IN ({placeholders})
+                      AND p.bertopic_theme IN ({placeholders})
                       AND c.sentiment_label IS NOT NULL
-                    GROUP BY c.assigned_theme, c.sentiment_label
-                    ORDER BY c.assigned_theme, c.sentiment_label
+                    GROUP BY p.bertopic_theme, c.sentiment_label
+                    ORDER BY p.bertopic_theme, c.sentiment_label
                 """
                 cursor.execute(sql, [risk_id] + top_themes)
                 return cursor.fetchall()
-            except Exception:
+            except Exception as e:
+                print(f"Error in get_risk_theme_sentiment_distribution: {e}")
                 return []
     finally:
         conn.close()
@@ -1341,6 +1329,74 @@ def get_post_comments(post_id, limit=15):
             return cursor.fetchall()
     finally:
         conn.close()
+
+
+def get_post_wordcloud_data(post_id, limit=50):
+    conn = get_connection()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute("""
+                SELECT c.comment_content
+                FROM comments c
+                WHERE c.post_id = %s
+                  AND c.comment_content IS NOT NULL
+                  AND c.comment_content <> ''
+            """, (post_id,))
+            comments = cursor.fetchall()
+            all_text = " ".join([row[0] for row in comments])
+            
+            return extract_top_words(all_text, limit)
+    finally:
+        conn.close()
+
+
+def get_theme_wordcloud_data(theme, limit=50):
+    conn = get_connection()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute("""
+                SELECT c.comment_content
+                FROM comments c
+                JOIN posts p ON c.post_id = p.post_id
+                WHERE p.bertopic_theme = %s
+                  AND c.comment_content IS NOT NULL
+                  AND c.comment_content <> ''
+            """, (theme,))
+            comments = cursor.fetchall()
+            all_text = " ".join([row[0] for row in comments])
+            
+            return extract_top_words(all_text, limit)
+    finally:
+        conn.close()
+
+
+import re
+import jieba
+
+def extract_top_words(text, limit=50):
+    stopwords = set([
+        "的", "了", "和", "是", "就", "都", "而", "及", "与", "着", "或", "一个", "没有", "我们", "你们",
+        "他们", "它们", "这个", "那个", "这些", "那些", "什么", "怎么", "为什么", "因为", "所以",
+        "但是", "然而", "可是", "不过", "虽然", "如果", "要是", "只要", "只有", "就", "才", "都",
+        "很", "非常", "特别", "十分", "太", "更", "最", "还", "也", "又", "再", "已经", "曾经",
+        "正在", "将要", "会", "能", "可以", "应该", "必须", "需要", "可能", "应该", "要", "不",
+        "没有", "别", "不要", "不能", "不会", "不想", "不敢", "不必", "不用", "小红书", "AI", "ai",
+        "人工智能", "自己", "觉得", "认为", "知道", "说", "看", "听", "想", "做", "有", "在", "到",
+        "上", "下", "来", "去", "过", "回", "出", "进", "给", "拿", "放", "开", "关", "走", "跑",
+        "跳", "飞", "吃", "喝", "睡", "玩", "学", "写", "读", "看", "听", "说", "唱", "跳", "笑"
+    ])
+    
+    words = jieba.cut(text)
+    word_counts = {}
+    
+    for word in words:
+        word = word.strip()
+        if len(word) >= 2 and word not in stopwords:
+            word_counts[word] = word_counts.get(word, 0) + 1
+    
+    sorted_words = sorted(word_counts.items(), key=lambda x: x[1], reverse=True)[:limit]
+    
+    return [{"word": word, "count": count} for word, count in sorted_words]
 
 
 # =========================
@@ -1581,12 +1637,18 @@ def api_attitude_trend():
 
 @app.route("/api/risk/<int:risk_id>/theme_attitude_matrix")
 def api_risk_theme_attitude_matrix(risk_id):
-    return jsonify(get_risk_theme_attitude_matrix(risk_id, 8))
+    print(f"DEBUG: api_risk_theme_attitude_matrix called with risk_id={risk_id}")
+    result = get_risk_theme_attitude_matrix(risk_id, 8)
+    print(f"DEBUG: result: {result}")
+    return jsonify(result)
 
 
 @app.route("/api/risk/<int:risk_id>/theme_sentiment_distribution")
 def api_risk_theme_sentiment_distribution(risk_id):
-    return jsonify(get_risk_theme_sentiment_distribution(risk_id, 8))
+    print(f"DEBUG: api_risk_theme_sentiment_distribution called with risk_id={risk_id}")
+    result = get_risk_theme_sentiment_distribution(risk_id, 8)
+    print(f"DEBUG: result: {result}")
+    return jsonify(result)
 
 
 @app.route("/api/post/<int:post_id>/sentiment")
@@ -1617,6 +1679,16 @@ def api_post_theme_sentiment(post_id):
 @app.route("/api/post/<int:post_id>/theme_attitude_matrix")
 def api_post_theme_attitude(post_id):
     return jsonify(get_post_theme_attitude_matrix(post_id, 8))
+
+
+@app.route("/api/post/<int:post_id>/wordcloud")
+def api_post_wordcloud(post_id):
+    return jsonify(get_post_wordcloud_data(post_id, 50))
+
+
+@app.route("/api/theme/<theme>/wordcloud")
+def api_theme_wordcloud(theme):
+    return jsonify(get_theme_wordcloud_data(theme, 50))
 
 
 @app.route("/api/themes")
